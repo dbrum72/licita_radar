@@ -1,0 +1,58 @@
+:root,
+[data-theme="terra-solar"] {
+  /* =========================================================
+     TEMA: TERRA SOLAR
+     Identidade: institucional, acolhedora, moderna e orgânica.
+  ========================================================= */
+
+  /* Marca */
+  --color-brand: var(--palette-earth-700);
+  --color-brand-hover: #4f3627;
+  --color-brand-active: #432e22;
+  --color-on-brand: var(--neutral-0);
+
+  --color-accent: var(--palette-mint-500);
+  --color-accent-hover: #65ad95;
+  --color-on-accent: #173c31;
+
+  --color-highlight: var(--palette-orange-500);
+  --color-highlight-hover: #d96810;
+  --color-on-highlight: var(--neutral-0);
+
+  --color-warning: var(--palette-amber-400);
+  --color-warning-hover: #d99520;
+  --color-on-warning: #422a00;
+
+  /* Superfícies */
+  --color-page: #fffdf7;
+  --color-surface: var(--neutral-0);
+  --color-surface-soft: #fff8df;
+  --color-surface-muted: var(--neutral-100);
+  --color-surface-accent: #e4f4ef;
+
+  /* Texto */
+  --color-text: #2f2924;
+  --color-text-soft: #655b51;
+  --color-text-muted: #867b70;
+  --color-text-inverse: var(--neutral-0);
+
+  /* Bordas */
+  --color-border: #e5ddcf;
+  --color-border-strong: #cdbfab;
+  --color-divider: #eee7dc;
+
+  /* Estados */
+  --color-success: #3f8f73;
+  --color-success-soft: #e2f2ec;
+  --color-danger: #c54b3c;
+  --color-danger-soft: #fde9e6;
+  --color-info: #4d86a8;
+  --color-info-soft: #e8f2f8;
+
+  /* Foco */
+  --focus-ring: 0 0 0 3px rgb(120 192 168 / 0.35);
+
+  /* Elevação contextual */
+  --surface-shadow: var(--shadow-sm);
+  --overlay-shadow: var(--shadow-lg);
+}
