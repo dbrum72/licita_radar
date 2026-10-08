@@ -1,6 +1,29 @@
 {
-  "name": "licitaradar", "version": "0.1.0", "private": true, "type": "module",
-  "scripts": {"dev":"vite --host 127.0.0.1", "build":"vite build", "test":"vitest run"},
-  "dependencies": {"vue":"^3.5.40", "@lucide/vue":"^1.28.0"},
-  "devDependencies": {"vite":"^8.1.5", "@vitejs/plugin-vue":"^6.0.8", "vitest":"^4.1.10"}
+  "name": "licitaradar",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "format": "prettier --write src/ tests/",
+    "format:check": "prettier --check src/ tests/"
+  },
+  "dependencies": {
+    "@lucide/vue": "^1.28.0",
+    "vue": "^3.5.40"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.8",
+    "@vue/test-utils": "^2.4.11",
+    "jsdom": "^30.0.1",
+    "prettier": "^3.9.5",
+    "vite": "^8.1.5",
+    "vitest": "^4.1.10"
+  },
+  "engines": {
+    "node": "^22.18.0 || >=24.12.0"
+  }
 }
