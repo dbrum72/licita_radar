@@ -15,7 +15,7 @@ class TenderAttachmentService
 
     public function fetchRequested(Opportunity $opportunity): array
     {
-        if (! $opportunity->deadline || ! $opportunity->deadline->gt(now()) || $opportunity->dismissal()->exists()
+        if (! $opportunity->hasOpenDeadline() || $opportunity->dismissal()->exists()
             || app(CompanyScopeService::class)->assess($opportunity->object, $opportunity->deadline)['status'] !== 'compatible') {
             abort(422, 'Compatibilidade com o acervo atual não demonstrada. Cadastre documentação válida antes de buscar anexos.');
         }
@@ -42,7 +42,7 @@ class TenderAttachmentService
         if (! $op) {
             return;
         }
-        if (! $op->deadline || ! $op->deadline->gt(now()) || $op->dismissal()->exists() || app(CompanyScopeService::class)->assess($op->object, $op->deadline)['status'] !== 'compatible') {
+        if (! $op->hasOpenDeadline() || $op->dismissal()->exists() || app(CompanyScopeService::class)->assess($op->object, $op->deadline)['status'] !== 'compatible') {
             $op->update(['attachments_status' => 'pending', 'attachments_error' => 'Busca suspensa: compatibilidade com o acervo atual não demonstrada.']);
 
             return;

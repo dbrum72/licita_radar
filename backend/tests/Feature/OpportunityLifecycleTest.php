@@ -10,6 +10,7 @@ use App\Models\SearchProfile;
 use App\Models\User;
 use App\Services\OpportunityLifecycleService;
 use App\Services\SyncService;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\DB;
@@ -42,10 +43,51 @@ class OpportunityLifecycleTest extends TestCase
             'dataEncerramentoProposta' => $deadline];
     }
 
+    public function test_sync_accepts_today_in_brasilia_and_rejects_yesterday(): void
+    {
+        $this->travelTo(Carbon::parse('2026-10-13 18:00:00', 'America/Sao_Paulo'));
+        config(['radar.modalities' => [4]]);
+        $this->companyDocument();
+        $profile = SearchProfile::create(['name' => 'Projetos', 'keywords' => [], 'min_days' => 0, 'active' => true]);
+        Http::fake(['*' => Http::response(['data' => [
+            $this->row(1, '2026-10-13T03:00:00Z'),
+            $this->row(2, '2026-10-13T02:59:59Z'),
+        ], 'totalPaginas' => 1])]);
+        $this->assertSame(1, app(SyncService::class)->run([$profile->id])->imported);
+        $this->assertDatabaseHas('opportunities', ['sequence' => 1]);
+        $this->assertDatabaseMissing('opportunities', ['sequence' => 2]);
+    }
+
+    public function test_today_remains_open_until_midnight_in_brasilia(): void
+    {
+        $this->travelTo(Carbon::parse('2026-10-13 23:59:59', 'America/Sao_Paulo'));
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        $this->companyDocument();
+        $today = $this->opportunity(1, now()->startOfDay());
+        $yesterday = $this->opportunity(2, now()->subDay()->endOfDay());
+        $discarded = $this->opportunity(3, now()->startOfDay());
+        $discarded->dismissal()->create();
+        $this->assertSame(0, app(OpportunityLifecycleService::class)->pruneExpiredDiscarded());
+        $this->getJson('/api/opportunities')->assertOk()->assertJsonPath('total', 1)->assertJsonPath('data.0.id', $today->id);
+        $this->getJson('/api/dashboard')->assertOk()->assertJsonPath('open', 1);
+        $this->postJson('/api/opportunities/export', ['ids' => [$today->id]])->assertOk()->assertHeader('Content-Type', 'application/pdf');
+        $this->postJson('/api/opportunities/export', ['ids' => [$yesterday->id]])->assertUnprocessable();
+        $this->patchJson('/api/opportunities/'.$today->id, ['bookmarked' => true])->assertOk();
+        $this->patchJson('/api/opportunities/'.$discarded->id.'/discard', ['discarded' => false])->assertOk();
+        $discarded->dismissal()->create();
+        $this->travelTo(now()->addSecond());
+        $this->actingAs($user);
+        $this->getJson('/api/opportunities?bookmarked=1')->assertOk()->assertJsonPath('total', 0);
+        $this->assertNull($discarded->fresh());
+        $this->assertNotNull($today->fresh());
+        $this->postJson('/api/opportunities/export', ['ids' => [$today->id]])->assertUnprocessable();
+    }
+
     public function test_cleanup_deletes_only_expired_discarded_records_and_keeps_the_company_and_consultation_id(): void
     {
         $this->travelTo(now()->startOfSecond());
-        $op = $this->opportunity(1, now());
+        $op = $this->opportunity(1, now()->subDay());
         $op->dismissal()->create();
         $future = $this->opportunity(2);
         $future->dismissal()->create();
@@ -68,14 +110,14 @@ class OpportunityLifecycleTest extends TestCase
         Http::assertNothingSent();
     }
 
-    public function test_restore_at_the_deadline_is_rejected_and_deletes_the_expired_discard(): void
+    public function test_restore_on_the_day_after_the_deadline_is_rejected_and_deletes_the_expired_discard(): void
     {
         $this->travelTo(now()->startOfSecond());
         $user = User::factory()->create();
         $this->actingAs($user);
         $op = $this->opportunity();
         $this->patchJson('/api/opportunities/'.$op->id.'/discard', ['discarded' => true])->assertOk();
-        $this->travelTo($op->deadline);
+        $this->travelTo($op->deadline->copy()->addDay()->startOfDay());
         $this->actingAs($user);
         $this->patchJson('/api/opportunities/'.$op->id.'/discard', ['discarded' => false])->assertUnprocessable();
         $this->assertNull($op->fresh());
@@ -86,9 +128,9 @@ class OpportunityLifecycleTest extends TestCase
     {
         $this->actingAs(User::factory()->create());
         $this->companyDocument();
-        $op = $this->opportunity(1, now()->subMinute());
+        $op = $this->opportunity(1, now()->subDay());
         $op->dismissal()->create();
-        $active = $this->opportunity(2, now()->subMinute());
+        $active = $this->opportunity(2, now()->subDay());
         $future = $this->opportunity(3);
         $future->dismissal()->create();
         $this->getJson('/api/opportunities?discarded=1&open=0')->assertJsonPath('total', 1)->assertJsonPath('data.0.id', $future->id);
@@ -107,7 +149,7 @@ class OpportunityLifecycleTest extends TestCase
         $existing->update(['bookmarked' => true]);
         DB::table('pncp_consultations')->insert(['pncp_id' => '123-2026-7', 'first_seen_at' => now()]);
         $open = now()->addDays(20)->toIso8601String();
-        $rows = [$this->row(1, $open), $this->row(1, $open), $this->row(2, now()->toIso8601String()), $this->row(3),
+        $rows = [$this->row(1, $open), $this->row(1, $open), $this->row(2, now()->subDay()->toIso8601String()), $this->row(3),
             $this->row(4, $open, 'Aquisição de computadores'), $this->row(5, 'data inválida'),
             $this->row(6, $open, 'Elaboração de projeto elétrico'), $this->row(7, $open)];
         Http::fake(['*' => Http::response(['data' => $rows, 'totalPaginas' => 1])]);
@@ -130,7 +172,7 @@ class OpportunityLifecycleTest extends TestCase
         Queue::fake();
         config(['radar.modalities' => [4]]);
         $this->companyDocument();
-        $op = $this->opportunity(1, now()->subMinute());
+        $op = $this->opportunity(1, now()->subDay());
         $op->dismissal()->create();
         Http::fake(['*' => Http::response(['data' => [$this->row(1, now()->addDays(20)->toIso8601String())], 'totalPaginas' => 1])]);
         $this->assertSame(0, app(SyncService::class)->run()->imported);
@@ -154,7 +196,7 @@ class OpportunityLifecycleTest extends TestCase
     {
         $this->actingAs(User::factory()->create());
         $this->companyDocument();
-        $op = $this->opportunity(1, now()->subMinute());
+        $op = $this->opportunity(1, now()->subDay());
         $this->postJson('/api/opportunities/export', ['ids' => [$op->id]])->assertUnprocessable();
     }
 
@@ -201,7 +243,7 @@ class OpportunityLifecycleTest extends TestCase
         $this->patchJson('/api/opportunities/'.$op->id.'/discard', ['discarded' => true])->assertOk();
         $this->patchJson('/api/opportunities/'.$op->id.'/discard', ['discarded' => false])->assertOk();
         $this->getJson('/api/opportunities')->assertJsonPath('total', 1);
-        $op->update(['deadline' => now()->subMinute()]);
+        $op->update(['deadline' => now()->subDay()]);
         $this->patchJson('/api/opportunities/'.$op->id, ['bookmarked' => true])->assertUnprocessable();
     }
 

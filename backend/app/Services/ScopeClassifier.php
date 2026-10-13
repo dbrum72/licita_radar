@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Opportunity;
 use App\Models\SearchProfile;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
@@ -53,6 +54,6 @@ class ScopeClassifier
             return false;
         }
 
-        return $data['deadline'] && Carbon::parse($data['deadline'])->gte(now()->addDays($profile->min_days));
+        return $data['deadline'] && Carbon::parse($data['deadline'])->timezone('America/Sao_Paulo')->gte(Opportunity::openDeadlineBoundary()->addDays($profile->min_days));
     }
 }

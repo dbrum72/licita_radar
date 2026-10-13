@@ -1,5 +1,10 @@
 # Cronograma de entregas — LicitaRadar
 
+## Regra vigente de vencimento — 13/10/2026
+
+Oportunidades permanecem disponíveis durante toda a data do prazo em America/Sao_Paulo, independentemente do horário informado. Somente datas anteriores ao dia atual são consideradas vencidas. Regra aplicada à importação, listagem, painel, PDF, resumos, parecer, salvar/restaurar, anexos e limpeza de descartadas. Horário original preservado no banco. O filtro de dias mínimos dos perfis também usa dias de calendário. Substitui as comparações históricas pelo instante exato do prazo. Não houve migrations, consultas PNCP reais ou alteração direta dos dados. Validação: 69 testes PHP/412 assertions aprovados no MySQL isolado, Pint e verificação de diff aprovados; regressões cobrem hoje às 23:59:59, virada do dia, listagem, painel, PDF, salvar/restaurar, limpeza e importação com fuso explícito.
+
+
 08/10/2026 — Seletor de perfis removido da Visão geral e mantido somente em Oportunidades. Consulta manual, seleção em memória, interseção dos perfis e compatibilidade com acervo preservadas.
 
 08/10/2026 — Recuperada nova interrupção da API local; consulta 2 interrompida com resultados preservados. Inicialização autenticada deixa de aguardar painel, e leituras de painel/perfis recebem timeout de 15s. Usuário escolheu servidor HTTP concorrente; implementado Node nativo + quatro processos PHP locais, separando capacidade de leitura e escrita. Sem instalação adicional, jobs ou consultas automáticas. Login conferido, 21 testes frontend, 2 testes do transporte e build aprovados. API real respondeu durante requisição lenta; comandos de execução atualizados.

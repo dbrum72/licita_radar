@@ -14,7 +14,7 @@ class OpportunityQueryService
     public function paginate(array $filters): array
     {
         $this->lifecycle->pruneExpiredDiscarded();
-        $query = Opportunity::where('deadline', '>', now())->withExists('dismissal as discarded');
+        $query = Opportunity::where('deadline', '>=', Opportunity::openDeadlineBoundary())->withExists('dismissal as discarded');
         if ($filters['discarded'] ?? false) {
             $query->whereHas('dismissal');
         } else {

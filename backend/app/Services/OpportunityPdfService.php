@@ -19,7 +19,7 @@ class OpportunityPdfService
             if (! $item) {
                 throw ValidationException::withMessages(['ids' => 'Há oportunidades descartadas na seleção. Atualize a lista.']);
             }
-            if (! $item->deadline || ! $item->deadline->gt(now())) {
+            if (! $item->hasOpenDeadline()) {
                 throw ValidationException::withMessages(['ids' => 'Há oportunidades com prazo encerrado ou desconhecido na seleção. Atualize a lista.']);
             }
             $match = $company->assess($item->object, $item->deadline);

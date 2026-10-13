@@ -58,7 +58,7 @@ class SyncService
                             } catch (\Throwable) {
                                 return;
                             }
-                            if (! $deadline || ! $deadline->gt(now())) {
+                            if (! $deadline || $deadline->copy()->timezone('America/Sao_Paulo')->lt(Opportunity::openDeadlineBoundary())) {
                                 return;
                             }
                             $data['deadline'] = $deadline->copy()->timezone(config('app.timezone'))->toDateTimeString();

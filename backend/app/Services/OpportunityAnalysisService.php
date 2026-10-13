@@ -28,7 +28,7 @@ class OpportunityAnalysisService
                 || ($doc->expires_at && $doc->expires_at->copy()->endOfDay()->lt($date));
         });
         $verdict = $opportunity->scope_status === 'excluded' ? 'Fora do escopo inicial' :
-            (($opportunity->deadline && $opportunity->deadline->isPast()) ? 'Prazo encerrado' :
+            (($opportunity->deadline && ! $opportunity->hasOpenDeadline()) ? 'Prazo encerrado' :
             ($requirements->contains('status', 'unmet') ? 'Há requisitos não atendidos' :
             (($incomplete || $invalidEvidence || $requirements->isEmpty() || $requirements->contains('status', 'pending')) ? 'Análise documental pendente' : 'Requisitos cadastrados revisados')));
         foreach ($requirements as $req) {

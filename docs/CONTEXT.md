@@ -1,5 +1,10 @@
 # Contexto de retomada — LicitaRadar
 
+## Regra vigente de vencimento — 13/10/2026
+
+Oportunidades permanecem disponíveis durante toda a data do prazo em America/Sao_Paulo, independentemente do horário informado. Somente datas anteriores ao dia atual são consideradas vencidas. Regra aplicada à importação, listagem, painel, PDF, resumos, parecer, salvar/restaurar, anexos e limpeza de descartadas. Horário original preservado no banco. O filtro de dias mínimos dos perfis também usa dias de calendário. Substitui as comparações históricas pelo instante exato do prazo. Não houve migrations, consultas PNCP reais ou alteração direta dos dados. Validação: 69 testes PHP/412 assertions aprovados no MySQL isolado, Pint e verificação de diff aprovados; regressões cobrem hoje às 23:59:59, virada do dia, listagem, painel, PDF, salvar/restaurar, limpeza e importação com fuso explícito.
+
+
 Atualizado em: 08/10/2026. Fuso: America/Sao_Paulo.
 
 ## Seleção de perfis somente em Oportunidades

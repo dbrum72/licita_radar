@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Mail\OpportunityDigest;
+use App\Models\Opportunity;
 use App\Models\SearchProfile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -23,7 +24,7 @@ class DigestService
                 $items = DB::table('profile_opportunity as p')->join('opportunities as o', 'o.id', '=', 'p.opportunity_id')
                     ->where('p.search_profile_id', $profile->id)->whereNull('p.notified_at')
                     ->whereIn('o.id', $compatibleIds)
-                    ->where('o.scope_status', 'relevant')->where('o.deadline', '>', now())->get(['o.*', 'p.id as notification_id'])
+                    ->where('o.scope_status', 'relevant')->where('o.deadline', '>=', Opportunity::openDeadlineBoundary())->get(['o.*', 'p.id as notification_id'])
                     ->filter(fn ($item) => app(ScopeClassifier::class)->matches((array) $item, $profile));
                 if ($items->isEmpty()) {
                     continue;

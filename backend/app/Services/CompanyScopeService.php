@@ -102,7 +102,7 @@ class CompanyScopeService
     {
         $this->refresh();
         $ids = [];
-        Opportunity::whereDoesntHave('dismissal')->where('deadline', '>', now())->select('id', 'object', 'deadline')->chunkById(250, function ($items) use (&$ids) {
+        Opportunity::whereDoesntHave('dismissal')->where('deadline', '>=', Opportunity::openDeadlineBoundary())->select('id', 'object', 'deadline')->chunkById(250, function ($items) use (&$ids) {
             foreach ($items as $item) {
                 if ($this->assess($item->object, $item->deadline)['status'] === 'compatible') {
                     $ids[] = $item->id;
