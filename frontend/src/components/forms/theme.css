@@ -1,0 +1,125 @@
+.app-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.app-field__label {
+    font-size: 12px;
+    font-weight: 600;
+    flex-direction: row;
+}
+.app-field__required,
+.app-checkbox__required {
+    color: var(--color-brand);
+}
+.app-field__control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.app-field__input {
+    flex: 1;
+    min-width: 0;
+}
+.app-field__hint,
+.app-field__error,
+.app-file-upload__hint,
+.app-file-upload__error {
+    margin: 0;
+    font-size: 11px;
+    line-height: 1.5;
+}
+.app-field__hint,
+.app-file-upload__hint {
+    color: var(--color-text-muted);
+}
+.app-field__error,
+.app-file-upload__error,
+.app-checkbox__error {
+    color: var(--color-danger);
+}
+.app-field--invalid input,
+.app-field--invalid select,
+.app-field--invalid textarea {
+    border-color: var(--color-danger);
+}
+.app-checkbox__label {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+}
+.app-checkbox__content {
+    display: flex;
+    flex-direction: column;
+}
+.app-file-upload {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.app-file-upload__label {
+    font-size: 12px;
+    font-weight: 600;
+    flex-direction: row;
+}
+.app-file-upload__browse {
+    display: none;
+}
+.app-file-upload__remove {
+    color: var(--color-brand);
+    font-size: 12px;
+}
+.app-file-upload__empty {
+    display: none;
+}
+.app-file-upload__files {
+    padding: 0;
+    margin: 0;
+    list-style: none;
+}
+.app-file-upload__file {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.app-file-upload__file-info {
+    display: flex;
+    flex-direction: column;
+    font-size: 12px;
+}
+.app-file-upload__file-size {
+    color: var(--color-text-muted);
+    font-size: 11px;
+}
+.login-box > .app-field {
+    margin-bottom: 20px;
+}
+.login-box .app-field__label {
+    margin-bottom: 0;
+}
+.modal form > .app-field,
+.modal form > .app-checkbox {
+    margin-bottom: 18px;
+}
+.upload-form > .card__body > .app-file-upload,
+.upload-form > .app-file-upload {
+    flex: 1;
+    min-width: 240px;
+}
+.upload-form .app-field {
+    min-width: 160px;
+}
+.upload-form .app-field__label {
+    min-width: 0;
+}
+.upload-form .app-file-upload__remove {
+    align-self: flex-start;
+}
+@media (max-width: 560px) {
+    .upload-form .app-field,
+    .upload-form .app-file-upload {
+        width: 100%;
+        min-width: 0;
+    }
+}

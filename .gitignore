@@ -1,0 +1,14 @@
+backend/vendor/
+backend/.env
+backend/database/*.sqlite
+backend/database/licitaRadar_bd
+backend/storage/**/*.log
+backend/storage/app/private/*
+backend/bootstrap/cache/*.php
+frontend/node_modules/
+frontend/dist/
+frontend/.npm-cache/
+frontend/.env.local
+frontend/.env.*.local
+backend/public/app/
+.env
