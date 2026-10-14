@@ -6,8 +6,8 @@ use App\Models\CompanyDocument;
 use App\Models\Opportunity;
 use App\Models\SearchProfile;
 use App\Models\User;
-use App\Services\DigestService;
-use App\Services\SyncService;
+use App\Services\Consultations\SyncService;
+use App\Services\Digests\DigestService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -30,7 +30,7 @@ class OpportunityReportTest extends TestCase
 
     private function companyDocument(): CompanyDocument
     {
-        return CompanyDocument::create(['name' => 'Atestado de arquitetura.pdf', 'kind' => 'attestation', 'path' => 'test.pdf', 'sha256' => str_repeat('a', 64),
+        return $this->createCompanyDocument(['name' => 'Atestado de arquitetura.pdf', 'kind' => 'attestation', 'path' => 'test.pdf', 'sha256' => str_repeat('a', 64),
             'status' => 'ready', 'pages' => [['number' => 3, 'text' => 'Atestado de elaboração de projetos arquitetônicos para edificações.']]]);
     }
 

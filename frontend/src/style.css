@@ -513,7 +513,7 @@ main {
 }
 .stats {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: 15px;
     margin: 23px 0 27px;
 }
@@ -660,7 +660,7 @@ main {
 }
 .badge.relevant,
 .badge.ready,
-.badge.met,
+.badge.stored,
 .badge.completed {
     background: var(--color-success-soft);
     color: #365842;
@@ -923,44 +923,11 @@ main {
 .verdict p {
     font-size: 12px;
 }
-.requirement {
-    padding: 22px 0;
-    border-top: 1px solid var(--color-divider);
-}
-.requirement h4 {
-    font-size: 13px;
-    line-height: 1.8;
-    font-weight: 500;
-}
-.requirement p {
-    font-size: 11px;
-}
-.requirement-top {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 12px;
-}
-.requirement details {
-    font-size: 11px;
-    margin-bottom: 20px;
-}
-.requirement summary {
-    cursor: pointer;
-    color: var(--color-brand);
-}
 .candidate {
     padding: 15px;
     background: var(--color-surface-muted);
     margin-top: 10px;
     border-radius: 6px;
-}
-.manual-requirement {
-    padding-top: 20px;
-    border-top: 1px solid var(--color-border);
-}
-.manual-requirement .filter-grid {
-    grid-template-columns: 1fr 1fr;
-    margin-bottom: 20px;
 }
 .expiry {
     display: flex;
@@ -1018,20 +985,6 @@ footer > span:last-child {
 .modal form > .primary {
     width: 100%;
     margin-top: 14px;
-}
-.reading {
-    width: 900px;
-}
-.reading article {
-    padding: 20px 0;
-    border-top: 1px solid var(--color-border);
-}
-pre {
-    white-space: pre-wrap;
-    word-break: break-word;
-    font-family: inherit;
-    font-size: 12px;
-    line-height: 1.8;
 }
 .login-page {
     display: grid;

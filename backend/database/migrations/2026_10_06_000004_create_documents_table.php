@@ -16,9 +16,8 @@ return new class extends Migration
             $t->string('path');
             $t->string('sha256', 64);
             $t->date('expires_at')->nullable();
-            $t->string('status')->default('pending');
+            $t->string('status')->default('stored');
             $t->text('error')->nullable();
-            $t->json('pages')->nullable();
             $t->timestamps();
         });
     }

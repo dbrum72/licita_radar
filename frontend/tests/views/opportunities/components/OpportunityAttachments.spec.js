@@ -17,8 +17,10 @@ it('diferencia documentos do edital e solicita confirmação antes de excluir', 
     const doc = { id: 4, name: 'edital.pdf', status: 'ready' }
     state.detail.value.opportunity.documents = [doc]
     await wrapper.vm.$nextTick()
-    await button(wrapper, 'Ler páginas').trigger('click')
-    expect(state.readDocument).toHaveBeenCalledWith(4, true)
+    expect(wrapper.text()).not.toContain('Ler páginas')
+    expect(wrapper.text()).not.toContain('Texto extraído')
+    await wrapper.get('a').trigger('click')
+    expect(state.openDocument).toHaveBeenCalledWith(doc, true)
     await button(wrapper, 'Excluir anexo').trigger('click')
     expect(state.deleteAttachment).toHaveBeenCalledWith(doc)
     expect(state.confirmDelete).not.toHaveBeenCalled()

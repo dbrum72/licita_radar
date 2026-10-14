@@ -12,6 +12,6 @@ class Document extends Model
 
     protected function casts(): array
     {
-        return ['pages' => 'array', 'expires_at' => 'date'];
+        return ['expires_at' => 'date'];
     }
 }

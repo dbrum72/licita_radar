@@ -14,8 +14,8 @@ it('mantém o parecer preliminar e abre a evidência do acervo na página indica
         },
     ]
     await wrapper.vm.$nextTick()
-    expect(wrapper.text()).toContain('PARECER DOCUMENTAL PRELIMINAR')
+    expect(wrapper.text()).toContain('COMPATIBILIDADE COM O ACERVO')
     expect(wrapper.text()).toContain('rrt.pdf · página 2')
     await button(wrapper, 'rrt.pdf').trigger('click')
-    expect(state.readDocument).toHaveBeenCalledWith(5)
+    expect(state.openDocument).toHaveBeenCalledWith({ id: 5 })
 })

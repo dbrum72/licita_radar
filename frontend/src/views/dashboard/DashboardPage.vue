@@ -6,9 +6,9 @@ import {
     Files,
     RefreshCw,
     ArrowUpRight,
-    FileText,
     Check,
     Activity,
+    FileText,
 } from '@lucide/vue'
 import { useWorkspace } from '@/composables/useWorkspace'
 import { labels } from '@/constants/radar'
@@ -48,7 +48,7 @@ const historyColumns = [
             <span class="hero-tag"><span class="dot"></span>MONITORAMENTO DE LICITAÇÕES</span>
             <h2>Seu conhecimento técnico.<br />As oportunidades do Brasil.</h2>
             <p>
-                Da busca ao parecer documental, reúna tudo o que precisa<br class="desktop-break" />
+                Da busca à leitura dos editais, reúna tudo o que precisa<br class="desktop-break" />
                 para decidir quais editais merecem a sua atenção.
             </p>
             <AppButton variant="ghost" @click="go('opportunities')">
@@ -69,11 +69,6 @@ const historyColumns = [
             <span><Check :size="18" />Aderentes ao escopo</span
             ><strong>{{ dashboard.relevant || 0 }}</strong
             ><small>Projetos e anteprojetos identificados</small>
-        </AppCard>
-        <AppCard as="article">
-            <span><FileText :size="18" />Requisitos pendentes</span
-            ><strong>{{ dashboard.pending || 0 }}</strong
-            ><small>Aguardando análise documental</small>
         </AppCard>
         <AppCard as="article">
             <span><Files :size="18" />Acervo da empresa</span

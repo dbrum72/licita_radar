@@ -15,8 +15,6 @@ import CompanyDocumentListPage from '@/views/documents/CompanyDocumentListPage.v
 import SearchProfileListPage from '@/views/profiles/SearchProfileListPage.vue'
 import OpportunityShowPage from '@/views/opportunities/OpportunityShowPage.vue'
 import SearchProfileDialog from '@/views/profiles/components/SearchProfileDialog.vue'
-import DocumentReaderDialog from '@/components/documents/DocumentReaderDialog.vue'
-import RequirementReviewDialog from '@/views/opportunities/components/RequirementReviewDialog.vue'
 
 vi.mock('@/services/http', () => ({ api: vi.fn() }))
 
@@ -64,20 +62,6 @@ describe('views with shared reactive state', () => {
         expect(await render(SearchProfileDialog, (w) => w.editProfile())).toContain(
             'Palavras-chave a ignorar',
         )
-        expect(
-            await render(DocumentReaderDialog, (w) => {
-                w.reading.value = {
-                    name: 'Acervo',
-                    status: 'ready',
-                    pages: [{ number: 1, text: 'Arquitetura' }],
-                }
-            }),
-        ).toContain('Arquitetura')
-        expect(
-            await render(RequirementReviewDialog, (w) =>
-                w.review({ description: 'Atestado', status: 'pending' }),
-            ),
-        ).toContain('Atestado')
     })
 
     it('offers manual email dispatch without sending during rendering', async () => {
@@ -111,7 +95,6 @@ describe('manual domain actions', () => {
         await render(SearchProfileListPage, (state) => {
             workspace = state
             state.user.value = { name: 'Usuário' }
-            state.reading.value = { name: 'Acervo privado' }
             state.pendingDelete.value = { id: 1, name: 'Edital' }
             state.documents.value = [{ id: 1 }]
             state.selectedIds.value = [1]
@@ -119,7 +102,6 @@ describe('manual domain actions', () => {
         })
         await workspace.perform(() => Promise.reject({ status: 401, message: 'Sessão expirada' }))
         expect(workspace.user.value).toBeNull()
-        expect(workspace.reading.value).toBeNull()
         expect(workspace.pendingDelete.value).toBeNull()
         expect(workspace.profileForm.value).toBeNull()
         expect(workspace.documents.value).toEqual([])

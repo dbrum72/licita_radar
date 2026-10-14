@@ -4,7 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\CompanyDocument;
 use App\Models\User;
-use App\Services\JwtService;
+use App\Services\Auth\JwtService;
 use Firebase\JWT\JWT;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;

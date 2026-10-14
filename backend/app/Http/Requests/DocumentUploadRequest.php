@@ -13,7 +13,11 @@ class DocumentUploadRequest extends FormRequest
 
     public function rules(): array
     {
-        return ['file' => 'required|file|mimes:pdf|max:20480', 'kind' => 'required|in:certificate,attestation,rrt,cnpj,tender',
-            'expires_at' => 'nullable|date', 'opportunity_id' => 'nullable|integer|exists:opportunities,id'];
+        return [
+            'file' => 'required|file|mimes:pdf|max:20480',
+            'kind' => 'required|in:certificate,attestation,rrt,cnpj,tender',
+            'expires_at' => 'nullable|date',
+            'opportunity_id' => 'nullable|integer|exists:opportunities,id'
+        ];
     }
 }

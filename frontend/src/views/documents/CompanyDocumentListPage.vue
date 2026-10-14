@@ -14,7 +14,7 @@ const {
     expires,
     chosenFile,
     upload,
-    readDocument,
+    openDocument,
     downloadDocument,
 } = useWorkspace()
 </script>
@@ -69,15 +69,13 @@ const {
         <article v-for="doc in documents" :key="doc.id">
             <span class="file-icon"><FileText :size="22" /></span>
             <div>
-                <strong>{{ doc.name }}</strong
-                ><small
-                    >{{ labels[doc.kind] }} · {{ doc.pages?.length || 0 }} páginas · Validade:
-                    {{ date(doc.expires_at) }}</small
+                <a href="#" target="_blank" rel="noopener" @click.prevent="openDocument(doc)"
+                    ><strong>{{ doc.name }}</strong></a
+                >
+                <small>{{ labels[doc.kind] }} · Validade: {{ date(doc.expires_at) }}</small
                 ><small v-if="doc.error" class="danger-text">{{ doc.error }}</small>
             </div>
             <span :class="['badge', doc.status]">{{ labels[doc.status] }}</span
-            ><AppButton variant="ghost" class="text-button" @click="readDocument(doc.id)"
-                >Ler texto</AppButton
             ><AppButton
                 variant="ghost"
                 :disabled="busy"

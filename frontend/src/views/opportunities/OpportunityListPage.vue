@@ -31,7 +31,7 @@ const {
     toggleDiscard,
     selectPage,
     exportSelected,
-    readDocument,
+    openDocument,
     selectedProfileIds,
     consultationProfiles,
 } = useWorkspace()
@@ -236,7 +236,11 @@ const {
                 :key="e.document_id + '-' + e.page"
                 class="candidate"
             >
-                <AppButton variant="ghost" class="text-button" @click="readDocument(e.document_id)">
+                <AppButton
+                    variant="ghost"
+                    class="text-button"
+                    @click="openDocument({ id: e.document_id })"
+                >
                     {{ e.name }} · página {{ e.page }}
                 </AppButton>
                 <p>{{ e.concepts.join(', ') }}</p>

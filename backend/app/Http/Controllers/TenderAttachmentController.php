@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Opportunity;
-use App\Services\TenderAttachmentService;
+use App\Services\Documents\TenderAttachmentService;
 use Illuminate\Http\JsonResponse;
 
 class TenderAttachmentController extends Controller

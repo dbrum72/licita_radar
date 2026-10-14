@@ -6,7 +6,6 @@ import { opportunitiesApi } from '@/api/opportunities'
 
 export function useDocuments({ perform, busy, error, message, detail, refreshAttachments }) {
     const documents = ref([]),
-        reading = ref(null),
         chosenFile = ref(null),
         uploadKind = ref('attestation'),
         expires = ref('')
@@ -19,16 +18,11 @@ export function useDocuments({ perform, busy, error, message, detail, refreshAtt
             body.append('kind', tender ? 'tender' : uploadKind.value)
             if (expires.value && !tender) body.append('expires_at', expires.value)
             if (tender) body.append('opportunity_id', detail.value.opportunity.id)
-            const d = await documentsApi.upload(body)
+            await documentsApi.upload(body)
             chosenFile.value = null
             if (tender) detail.value = await opportunitiesApi.show(detail.value.opportunity.id)
             else documents.value = await documentsApi.list()
-            message.value =
-                d.status === 'ready'
-                    ? 'PDF recebido e texto extraído.'
-                    : d.status === 'needs_ocr'
-                      ? 'PDF recebido. Há páginas sem texto suficiente; é necessário OCR/revisão.'
-                      : d.error
+            message.value = 'PDF armazenado.'
         })
     }
 
@@ -43,20 +37,9 @@ export function useDocuments({ perform, busy, error, message, detail, refreshAtt
         if (!doc) return
         await perform(async () => {
             await documentsApi.deleteTender(doc.id)
-            if (reading.value?.source === 'tender' && reading.value?.id === doc.id)
-                reading.value = null
             clearDelete()
             await refreshAttachments()
-            message.value = 'Anexo e requisitos vinculados excluídos.'
-        })
-    }
-
-    async function readDocument(id, tender = false) {
-        await perform(async () => {
-            reading.value = {
-                ...(await documentsApi.read(id, tender)),
-                source: tender ? 'tender' : 'company',
-            }
+            message.value = 'Anexo excluído.'
         })
     }
 
@@ -66,16 +49,34 @@ export function useDocuments({ perform, busy, error, message, detail, refreshAtt
         })
     }
 
+    async function openDocument(doc, tender = false) {
+        if (busy.value) return
+        const tab = window.open('', '_blank')
+        if (tab) tab.opener = null
+        await perform(async () => {
+            if (!tab) throw new Error('Permita abrir uma nova aba para visualizar o PDF.')
+            try {
+                const blob = await documentsApi.download(doc.id, tender)
+                if (tab.closed) return
+                const url = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }))
+                tab.location.replace(url)
+                setTimeout(() => URL.revokeObjectURL(url), 60000)
+            } catch (failure) {
+                tab.close()
+                throw failure
+            }
+        })
+    }
+
     return {
         upload,
         deleteAttachment,
         confirmDelete,
         cancelDelete,
         pendingDelete,
-        readDocument,
         downloadDocument,
+        openDocument,
         documents,
-        reading,
         chosenFile,
         uploadKind,
         expires,

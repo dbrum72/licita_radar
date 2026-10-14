@@ -2,64 +2,42 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Requests\Auth\SetupRequest;
 use App\Models\User;
-use App\Services\JwtService;
+use App\Services\Auth\AuthenticateUser;
+use App\Services\Auth\JwtService;
+use App\Services\Registration\RegisterAdministrator;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\Response;
 
 class AuthController extends Controller
 {
-    public function __construct(private JwtService $tokens) {}
-
-    public function status()
+    public function status(): JsonResponse
     {
         return response()->json(['setup' => ! User::exists()]);
     }
 
-    public function setup(Request $request)
+    public function setup(SetupRequest $request, RegisterAdministrator $registrar): JsonResponse
     {
-        if (User::exists()) {
-            abort(403, 'A configuração inicial já foi concluída.');
-        }
-        if (! in_array($request->ip(), ['127.0.0.1', '::1'])) {
-            abort(403, 'Crie o primeiro usuário pelo comando radar:user no servidor.');
-        }
-        $data = $request->validate(['name' => 'required|string|max:120', 'email' => 'required|email|max:255|unique:users', 'password' => 'required|string|min:12|max:128']);
-
-        return Cache::lock('radar-setup', 30)->block(2, function () use ($data) {
-            if (User::exists()) {
-                abort(403);
-            }
-
-            return response()->json($this->tokens->issue(User::create($data)), 201);
-        });
+        return response()->json($registrar->execute($request->validated()), 201);
     }
 
-    public function login(Request $request)
+    public function login(LoginRequest $request, AuthenticateUser $authenticator): JsonResponse
     {
-        $data = $request->validate(['email' => 'required|email|max:255', 'password' => 'required|string|max:128']);
-        $user = User::where('email', $data['email'])->first();
-        $comparisonHash = $user?->password ?? Cache::rememberForever('auth:dummy-password:'.config('hashing.driver'),
-            fn () => Hash::make(Str::random(32)));
-        if (! Hash::check($data['password'], $comparisonHash) || ! $user) {
-            throw ValidationException::withMessages(['email' => 'E-mail ou senha incorretos.']);
-        }
-
-        return response()->json($this->tokens->issue($user));
+        return response()->json($authenticator->execute($request->validated()));
     }
 
-    public function logout(Request $request)
+    public function logout(Request $request, JwtService $tokens): Response
     {
-        $this->tokens->revoke($request->bearerToken());
+        $tokens->revoke($request->bearerToken());
 
         return response()->noContent();
     }
 
-    public function me(Request $request)
+    public function me(Request $request): JsonResponse
     {
-        return $request->user();
+        return response()->json($request->user());
     }
 }

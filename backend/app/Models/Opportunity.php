@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Opportunity extends Model
 {
@@ -25,17 +27,12 @@ class Opportunity extends Model
             && $this->deadline->copy()->timezone('America/Sao_Paulo')->gte(self::openDeadlineBoundary());
     }
 
-    public function documents()
+    public function documents(): HasMany
     {
         return $this->hasMany(Document::class);
     }
 
-    public function requirements()
-    {
-        return $this->hasMany(Requirement::class);
-    }
-
-    public function dismissal()
+    public function dismissal(): HasOne
     {
         return $this->hasOne(OpportunityDismissal::class);
     }

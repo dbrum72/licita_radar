@@ -1,5 +1,34 @@
 # Contexto de retomada — LicitaRadar
 
+## PDFs originais sem texto persistido — 14/10/2026
+
+Decisão do usuário: remover o leitor de páginas/texto, toda persistência do texto dos PDFs (incluindo o acervo) e toda a área de requisitos técnicos, com exclusão de seus dados existentes. Nomes dos arquivos abrem os PDFs privados do storage em outra aba por requisição autenticada e URL de blob. Anexos PNCP e uploads somente armazenam o PDF, com status `stored`; não há extração automática de requisitos nem mensagens de OCR dos anexos. O acervo é lido diretamente dos PDFs em memória por `PdfTextReader`, com reaproveitamento somente durante a operação, para manter o confronto com o objeto e os filtros. Trechos de compatibilidade são calculados em memória e não gravados na base.
+
+Limpeza aplicada na base local pelo comando idempotente `radar:remove-pdf-text`: colunas `pages` de `documents` e `company_documents` removidas; tabela `requirements` e seu registro antigo no histórico de migrations excluídos, junto com 274 requisitos. Migrations de criação atualizadas, sem migration incremental e sem recriação da base. Conferência anterior: 188 oportunidades, 19 anexos, 14 documentos da empresa; 12 registros de anexos já não possuíam arquivo no storage. Esses registros não foram excluídos. Downloads de arquivos ausentes retornam 404 com mensagem explícita. Relatório da entrega em [RELATORIO-PDFS.md](RELATORIO-PDFS.md).
+
+Os registros abaixo são históricos e não autorizam reintroduzir texto persistido, leitor de páginas ou requisitos técnicos.
+
+Validação desta entrega: suíte PHP completa com 67 testes/415 assertions, repetição dos 2 testes de schema/limpeza com 22 assertions após o tratamento de arquivo ausente; frontend com 235 testes em 40 arquivos; build Vite, Prettier, Pint e verificação de diff aprovados. Hashes antes/depois confirmaram preservação dos registros e dos 21 PDFs encontrados. PNCP/SMTP simulados nos testes, sem nova consulta operacional.
+
+## Pastas de anexos por oportunidade — 14/10/2026
+
+Novos PDFs baixados manualmente do PNCP e anexos enviados pelo usuário são armazenados no disco privado local em `storage/app/private/documents/opportunities/{id}/`, usando o ID interno da oportunidade. A pasta é criada ao gravar o primeiro PDF e reutilizada nas próximas buscas e uploads; nomes UUID evitam colisões e a deduplicação por conteúdo dentro da oportunidade permanece vigente. Anexos existentes nos caminhos anteriores continuam acessíveis, sem movimentação dos arquivos ou alteração dos dados existentes. Extração e exclusão usam o caminho registrado de cada documento.
+
+Validação: 6 testes de importação/anexos aprovados, 61 assertions, incluindo separação de oportunidades, repetição sem duplicatas, upload na mesma pasta e exclusão isolada. Pint e `git diff --check` aprovados. Testes executados com permissão após o sandbox impedir acesso ao autoload. PNCP simulado; sem downloads operacionais ou migrations.
+
+## Consolidação das decisões vigentes — 14/10/2026
+
+Documentação consolidada, com correção do seletor em FRONTEND.md e das referências à execução diária no planejamento. Validação desta atualização: 69 testes PHP/412 assertions no MySQL isolado, 237 testes frontend em 43 arquivos, 2 testes de transporte HTTP, build Vite, Prettier, Pint e git diff --check aprovados. PHP, Vitest e transporte foram repetidos com permissão após restrições do sandbox. Nenhuma mudança de código de aplicação ou migration nesta atualização; sem chamadas PNCP ou SMTP reais, nem nova revisão visual.
+
+Estado de retomada: Laravel API com JWT e serviços por domínio; Vue independente; empresa única; consultas, anexos e resumos exclusivamente manuais. A API local usa Node e quatro processos PHP com capacidade separada para leituras e escritas. Somente Oportunidades exibe a seleção de perfis: todos os selecionados devem ser atendidos; sem seleção, aplica-se apenas o acervo. Identificadores PNCP já consultados não são reavaliados. O dia do prazo permanece aberto integralmente em America/Sao_Paulo, preservando o horário original. Migrations de criação por tabela, MySQL e preservação dos dados são obrigatórios. PNCP, SMTP e PDFs reais continuam pendentes de homologação.
+
+Os registros antigos são históricos: não autorizam retomar jobs, workers, scheduler, autenticação por sessão/CSRF ou vencimento pelo instante exato. Análise econômica, propostas e WhatsApp permanecem fora do MVP. Detalhes operacionais em [API.md](API.md), arquitetura em [BACKEND.md](BACKEND.md) e [FRONTEND.md](FRONTEND.md).
+
+## Arquitetura do backend — 13/10/2026
+
+Aplicados padrões do backend Legalis: serviços por domínio, colaboradores por injeção com propriedades readonly, fluxos de autenticação/registro em serviços específicos, validações em FormRequests, controllers com métodos REST e respostas tipadas, relações Eloquent tipadas e comandos em Console/Commands. Referência somente lida. URLs e contratos do frontend, JWT, empresa única, operação manual e vencimento por data preservados. Sem migrations ou alterações diretas dos dados da aplicação. 69 testes PHP/412 assertions e Pint aprovados; integrações externas simuladas. Detalhes e estrutura vigente em [BACKEND.md](BACKEND.md).
+
+
 ## Regra vigente de vencimento — 13/10/2026
 
 Oportunidades permanecem disponíveis durante toda a data do prazo em America/Sao_Paulo, independentemente do horário informado. Somente datas anteriores ao dia atual são consideradas vencidas. Regra aplicada à importação, listagem, painel, PDF, resumos, parecer, salvar/restaurar, anexos e limpeza de descartadas. Horário original preservado no banco. O filtro de dias mínimos dos perfis também usa dias de calendário. Substitui as comparações históricas pelo instante exato do prazo. Não houve migrations, consultas PNCP reais ou alteração direta dos dados. Validação: 69 testes PHP/412 assertions aprovados no MySQL isolado, Pint e verificação de diff aprovados; regressões cobrem hoje às 23:59:59, virada do dia, listagem, painel, PDF, salvar/restaurar, limpeza e importação com fuso explícito.

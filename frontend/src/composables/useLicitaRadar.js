@@ -7,7 +7,6 @@ import { useAsyncAction } from '@/composables/useAsyncAction'
 import { useAuth } from '@/composables/useAuth'
 import { useProfiles } from '@/composables/useProfiles'
 import { useDocuments } from '@/composables/useDocuments'
-import { useRequirements } from '@/composables/useRequirements'
 import { useOpportunities } from '@/composables/useOpportunities'
 
 export function useLicitaRadar() {
@@ -39,7 +38,6 @@ export function useLicitaRadar() {
         loadDashboard,
         profiles: profiles.profiles,
     })
-    const requirements = useRequirements({ perform, detail })
     const auth = useAuth({
         perform,
         user,
@@ -59,12 +57,10 @@ export function useLicitaRadar() {
         detail.value = null
         view.value = 'dashboard'
         documents.documents.value = []
-        documents.reading.value = null
         documents.pendingDelete.value = null
         documents.chosenFile.value = null
         profiles.profiles.value = []
         profiles.profileForm.value = null
-        requirements.reviewForm.value = null
         opportunities.results.value = { data: [], current_page: 1, last_page: 1, total: 0 }
         opportunities.selectedIds.value = []
         opportunities.selectedProfileIds.value = []
@@ -74,7 +70,6 @@ export function useLicitaRadar() {
         if (actions.busy.value) return
         view.value = id
         detail.value = null
-        documents.reading.value = null
         documents.chosenFile.value = null
         if (id !== 'opportunities') opportunities.selectedIds.value = []
         await perform(async () => {
@@ -101,6 +96,5 @@ export function useLicitaRadar() {
         ...profiles,
         ...documents,
         ...opportunities,
-        ...requirements,
     }
 }

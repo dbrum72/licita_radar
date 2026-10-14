@@ -12,8 +12,8 @@ it('baixa documentos por ação autenticada e não por link direto', async () =>
     expect(wrapper.find('a[href*="/download"]').exists()).toBe(false)
     await button(wrapper, 'Baixar').trigger('click')
     expect(state.downloadDocument).toHaveBeenCalledWith(document)
-    await button(wrapper, 'Ler texto').trigger('click')
-    expect(state.readDocument).toHaveBeenCalledWith(8)
+    await wrapper.get('a').trigger('click')
+    expect(state.openDocument).toHaveBeenCalledWith(document)
 })
 
 it('seleciona o PDF e submete upload somente por formulário', async () => {

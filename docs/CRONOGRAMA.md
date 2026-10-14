@@ -1,5 +1,18 @@
 # Cronograma de entregas — LicitaRadar
 
+## Consolidação das decisões vigentes — 14/10/2026
+
+Documentação consolidada, com correção do seletor em FRONTEND.md e das referências à execução diária no planejamento. Validação desta atualização: 69 testes PHP/412 assertions no MySQL isolado, 237 testes frontend em 43 arquivos, 2 testes de transporte HTTP, build Vite, Prettier, Pint e git diff --check aprovados. PHP, Vitest e transporte foram repetidos com permissão após restrições do sandbox. Nenhuma mudança de código de aplicação ou migration nesta atualização; sem chamadas PNCP ou SMTP reais, nem nova revisão visual.
+
+Estado de retomada: Laravel API com JWT e serviços por domínio; Vue independente; empresa única; consultas, anexos e resumos exclusivamente manuais. A API local usa Node e quatro processos PHP com capacidade separada para leituras e escritas. Somente Oportunidades exibe a seleção de perfis: todos os selecionados devem ser atendidos; sem seleção, aplica-se apenas o acervo. Identificadores PNCP já consultados não são reavaliados. O dia do prazo permanece aberto integralmente em America/Sao_Paulo, preservando o horário original. Migrations de criação por tabela, MySQL e preservação dos dados são obrigatórios. PNCP, SMTP e PDFs reais continuam pendentes de homologação.
+
+Os registros antigos são históricos: não autorizam retomar jobs, workers, scheduler, autenticação por sessão/CSRF ou vencimento pelo instante exato. Análise econômica, propostas e WhatsApp permanecem fora do MVP. Detalhes operacionais em [API.md](API.md), arquitetura em [BACKEND.md](BACKEND.md) e [FRONTEND.md](FRONTEND.md).
+
+## Arquitetura do backend — 13/10/2026
+
+Aplicados padrões do backend Legalis: serviços por domínio, colaboradores por injeção com propriedades readonly, fluxos de autenticação/registro em serviços específicos, validações em FormRequests, controllers com métodos REST e respostas tipadas, relações Eloquent tipadas e comandos em Console/Commands. Referência somente lida. URLs e contratos do frontend, JWT, empresa única, operação manual e vencimento por data preservados. Sem migrations ou alterações diretas dos dados da aplicação. 69 testes PHP/412 assertions e Pint aprovados; integrações externas simuladas. Detalhes e estrutura vigente em [BACKEND.md](BACKEND.md).
+
+
 ## Regra vigente de vencimento — 13/10/2026
 
 Oportunidades permanecem disponíveis durante toda a data do prazo em America/Sao_Paulo, independentemente do horário informado. Somente datas anteriores ao dia atual são consideradas vencidas. Regra aplicada à importação, listagem, painel, PDF, resumos, parecer, salvar/restaurar, anexos e limpeza de descartadas. Horário original preservado no banco. O filtro de dias mínimos dos perfis também usa dias de calendário. Substitui as comparações históricas pelo instante exato do prazo. Não houve migrations, consultas PNCP reais ou alteração direta dos dados. Validação: 69 testes PHP/412 assertions aprovados no MySQL isolado, Pint e verificação de diff aprovados; regressões cobrem hoje às 23:59:59, virada do dia, listagem, painel, PDF, salvar/restaurar, limpeza e importação com fuso explícito.
@@ -90,7 +103,7 @@ Este cronograma organiza a sequência de entregas e seus critérios de aceite. D
 | 3 | Acervo da empresa e análise documental inicial | Implementado; homologação com PDFs reais pendente | Etapas 1–2 e exemplos documentais | Upload dos tipos acordados, tabelas separadas, extração por página limitada a candidatos técnicos, busca de anexos sob solicitação sem worker, exclusão de anexos e requisitos de origem, evidências rastreáveis e revisão com casos reais. |
 | 4 | Estabilização e piloto de uso | Planejada; próxima entrega de consolidação | Homologação das etapas 2–3 | Rodadas completas de consulta e anexos, erros diagnosticáveis, testes dos resumos no Mailpit e revisão do fluxo pelo usuário. |
 | 5 | Ampliar a interpretação documental | Backlog proposto, escopo a definir | PDFs representativos e resultados do piloto | Definir necessidade de OCR e análise de requisitos complexos; validar extração e comparação contra revisão humana, sem aprovar habilitação apenas por palavras em comum. |
-| 6 | Operação em produção | Planejada; ambiente a definir | Piloto aprovado e infraestrutura definida | Hospedagem, SMTP real, HTTPS, backups e execução diária independente do computador de desenvolvimento, com monitoramento de falhas. |
+| 6 | Operação em produção | Planejada; ambiente a definir | Piloto aprovado e infraestrutura definida | Hospedagem, SMTP real, HTTPS, backups e monitoramento de falhas, preservando a operação manual vigente. Automação depende de nova definição explícita de escopo. |
 | 7 | Viabilidade econômica e de mercado | Adiada pelo usuário | Dados de custos, capacidade, margem e critérios de decisão | Parecer econômico fundamentado, com premissas e distinção entre estimativas e dados conhecidos. |
 | 8 | Preparação/envio de inscrições e propostas | Adiada pelo usuário | Regras dos portais, credenciais e aprovação do novo escopo | Definir fluxo de preparação, revisão e autorização do envio antes de implementar ações externas. |
 | 9 | Alertas por WhatsApp | Adiada pelo usuário | Escolha do provedor e aprovação do novo escopo | Integração configurada e alertas validados com destinatários autorizados. |
@@ -100,6 +113,10 @@ Este cronograma organiza a sequência de entregas e seus critérios de aceite. D
 Palavras-chave opcionais nos perfis, busca direta de anexos pelo botão, exclusão de PDFs/requisitos de origem e extração limitada a candidatos técnicos estão implementadas. Última validação: **39 testes aprovados, 211 assertions e build Vue aprovado**, com PNCP simulado e MySQL isolado. Não houve novas migrations. Homologação operacional e com PDFs reais permanece pendente.
 
 ## Próxima entrega: consolidação do MVP
+
+14/10/2026 — escopo revisado pelo usuário: PDFs originais no storage, abertura em outra aba, sem texto de páginas na base e sem fluxo de requisitos. Acervo lido em memória para seleção de oportunidades. Removidos 274 requisitos da base local; homologação passa a conferir download/abertura dos PDFs e confronto do objeto com o acervo. Critérios históricos de extração/revisão de requisitos abaixo foram substituídos por esta decisão. Detalhes em [RELATORIO-PDFS.md](RELATORIO-PDFS.md).
+
+14/10/2026: novos anexos PNCP e uploads manuais agrupados por oportunidade em `storage/app/private/documents/opportunities/{id}/`. Repetições reutilizam a pasta e preservam a deduplicação. Arquivos anteriores permanecem acessíveis no caminho registrado. A homologação com anexos reais continua pendente.
 
 Implementado em 07/10/2026: busca e seleção orientadas exclusivamente pelo acervo, com especialidades e evidências por página. Perfis refinam alertas e resultados por palavras-chave opcionais; campo vazio representa busca genérica entre oportunidades compatíveis com o acervo. Próxima prioridade: homologar a qualidade do confronto textual com PDFs e editais reais.
 
@@ -115,7 +132,7 @@ Critérios de aceite do novo objetivo:
 2. Homologar a busca de anexos pelo botão, sem worker, incluindo falhas, novas tentativas, formatos não PDF e exclusão com remoção dos requisitos de origem.
 3. Validar os PDFs de certificações, atestados, RRT e CNPJ da empresa. O usuário informou que fornecerá exemplos; a homologação desses exemplos ainda não foi concluída.
 4. Validar uma oportunidade do início ao fim: edital, extração apenas de candidatos técnicos, evidência da empresa, revisão e parecer preliminar. Requisitos antigos exigem nova importação do anexo para aplicar o classificador atual.
-5. Testar o resumo de oportunidades no Mailpit e uma execução da tarefa diária. Já foi validada a captura de uma mensagem de teste, mas isso não substitui o teste do resumo completo.
+5. Homologar o resumo de oportunidades no Mailpit pelo botão manual em Perfis de busca. A captura de mensagem de teste não substitui o resumo completo. A tarefa diária permanece desativada.
 
 ## Limites da entrega atual
 

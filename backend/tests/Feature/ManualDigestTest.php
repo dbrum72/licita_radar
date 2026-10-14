@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Mail\OpportunityDigest;
-use App\Models\CompanyDocument;
 use App\Models\Opportunity;
 use App\Models\SearchProfile;
 use App\Models\User;
@@ -18,7 +17,7 @@ class ManualDigestTest extends TestCase
 
     private function notification(): void
     {
-        CompanyDocument::create(['name' => 'acervo.pdf', 'kind' => 'rrt', 'path' => 'test.pdf', 'sha256' => str_repeat('f', 64),
+        $this->createCompanyDocument(['name' => 'acervo.pdf', 'kind' => 'rrt', 'path' => 'test.pdf', 'sha256' => str_repeat('f', 64),
             'status' => 'ready', 'pages' => [['number' => 1, 'text' => 'Registro de elaboração de projetos de arquitetura para edificações.']]]);
         $opportunity = Opportunity::create(['pncp_id' => 'manual-2026-1', 'cnpj' => '12345678000100', 'year' => 2026, 'sequence' => 1,
             'object' => 'Elaboração de projeto arquitetônico', 'agency' => 'Prefeitura', 'modality_id' => 4, 'modality' => 'Concorrência',

@@ -11,7 +11,6 @@ it('requires explicit confirmation and preserves a company reader with the same 
     const actions = useAsyncAction(() => {})
     const refresh = vi.fn()
     const documents = useDocuments({ ...actions, detail: ref(null), refreshAttachments: refresh })
-    documents.reading.value = { id: 1, source: 'company' }
     documents.deleteAttachment({ id: 1, name: 'Edital' })
     expect(api).not.toHaveBeenCalled()
     documents.cancelDelete()
@@ -20,7 +19,6 @@ it('requires explicit confirmation and preserves a company reader with the same 
     api.mockResolvedValueOnce(null)
     await documents.confirmDelete()
     expect(api).toHaveBeenCalledWith('tender-documents/1', { method: 'DELETE' })
-    expect(documents.reading.value.source).toBe('company')
     expect(documents.pendingDelete.value).toBeNull()
     expect(refresh).toHaveBeenCalledOnce()
 })

@@ -5,7 +5,7 @@ namespace App\Providers;
 use App\Integrations\Pncp\Contracts\PncpClient;
 use App\Integrations\Pncp\HttpPncpClient;
 use App\Models\Opportunity;
-use App\Services\JwtService;
+use App\Services\Auth\JwtService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;

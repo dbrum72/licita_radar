@@ -2,7 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\DashboardService;
+use App\Services\Dashboard\DashboardService;
+use Illuminate\Http\JsonResponse;
 
 class DashboardController extends Controller
 {
@@ -10,8 +11,8 @@ class DashboardController extends Controller
         private DashboardService $dashboardService,
     ) {}
 
-    public function index()
+    public function index(): JsonResponse
     {
-        return $this->dashboardService->summary();
+        return response()->json($this->dashboardService->summary());
     }
 }

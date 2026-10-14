@@ -3,15 +3,13 @@
 namespace Tests\Feature;
 
 use App\Models\CompanyDocument;
-use App\Models\Document;
 use App\Models\Opportunity;
-use App\Models\Requirement;
 use App\Models\SearchProfile;
 use App\Models\User;
-use App\Services\CompanyScopeService;
-use App\Services\DigestService;
-use App\Services\ScopeClassifier;
-use App\Services\SyncService;
+use App\Services\CompanyDocuments\CompanyScopeService;
+use App\Services\Consultations\SyncService;
+use App\Services\Digests\DigestService;
+use App\Services\Opportunities\ScopeClassifier;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
@@ -54,22 +52,6 @@ class RadarTest extends TestCase
         $this->assertSame('relevant', $scope->classify('Elaboração de projetos de engenharia e arquitetura')[0]);
         $this->assertSame('excluded', $scope->classify('Elaboração de projeto e execução de obra de uma escola')[0]);
         $this->assertSame('review', $scope->classify('Aquisição de computadores')[0]);
-    }
-
-    public function test_pdf_evidence_cannot_be_expired_or_from_another_tender(): void
-    {
-        $this->actingAs(User::factory()->create());
-        $op = $this->opportunity();
-        $source = Document::create(['opportunity_id' => $op->id, 'name' => 'edital.pdf', 'kind' => 'tender', 'path' => 'test.pdf', 'sha256' => str_repeat('0', 64), 'status' => 'ready', 'pages' => [['number' => 1, 'text' => 'Atestado técnico']]]);
-        $req = Requirement::create(['opportunity_id' => $op->id, 'source_document_id' => $source->id, 'source_page' => 1, 'description' => 'Atestado técnico de arquitetura']);
-        $evidence = CompanyDocument::create(['name' => 'atestado.pdf', 'kind' => 'attestation', 'path' => 'e.pdf', 'sha256' => str_repeat('1', 64), 'status' => 'ready', 'expires_at' => today()->subDay(), 'pages' => [['number' => 1, 'text' => 'Projeto arquitetônico']]]);
-        $payload = ['status' => 'met', 'evidence_document_id' => $evidence->id, 'evidence_page' => 1, 'notes' => 'Conferido'];
-        $this->patchJson('/api/requirements/'.$req->id, $payload)->assertUnprocessable();
-        $evidence->update(['expires_at' => today()->addDays(10)]);
-        $this->patchJson('/api/requirements/'.$req->id, $payload)->assertUnprocessable();
-        $evidence->update(['expires_at' => today()->addDays(30)]);
-        $this->patchJson('/api/requirements/'.$req->id, $payload)->assertOk();
-        $this->assertDatabaseHas('requirements', ['id' => $req->id, 'status' => 'met', 'reviewer_id' => auth()->id()]);
     }
 
     public function test_empty_analysis_never_confirms_qualification(): void
@@ -217,7 +199,7 @@ class RadarTest extends TestCase
 
     private function companyDocument(array $attributes = []): CompanyDocument
     {
-        return CompanyDocument::create([...['name' => 'acervo.pdf', 'kind' => 'attestation', 'path' => 'test.pdf',
+        return $this->createCompanyDocument([...['name' => 'acervo.pdf', 'kind' => 'attestation', 'path' => 'test.pdf',
             'sha256' => str_repeat('2', 64), 'status' => 'ready', 'pages' => [['number' => 1, 'text' => 'Atestado de elaboração de projetos arquitetônicos para edificações.']]], ...$attributes]);
     }
 
@@ -231,9 +213,10 @@ class RadarTest extends TestCase
             ->assertJsonPath('data.0.company_match.evidence.0.document_id', $doc->id);
         $doc->update(['expires_at' => today()->addDays(10)]);
         $this->getJson('/api/opportunities')->assertJsonPath('total', 0);
-        $doc->update(['expires_at' => null, 'status' => 'needs_ocr']);
+        $doc->update(['expires_at' => null]);
+        $this->writeCompanyPdf($doc, []);
         $this->getJson('/api/opportunities')->assertJsonPath('total', 0);
-        $doc->update(['status' => 'ready', 'pages' => [['number' => 1, 'text' => 'Certidão negativa de débitos da empresa regularmente habilitada.']]]);
+        $this->writeCompanyPdf($doc, [['number' => 1, 'text' => 'Certidão negativa de débitos da empresa regularmente habilitada.']]);
         $this->getJson('/api/opportunities')->assertJsonPath('total', 0);
     }
 

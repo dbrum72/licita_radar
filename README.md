@@ -39,7 +39,7 @@ Para desenvolvimento do Vue: `npm run dev` em `frontend`, com a API Laravel ativ
 
 ## Banco e integração
 
-Migrações incluem usuários, sessões, filas, cache, oportunidades (ID PNCP único), perfis e seus resultados, documentos privados com SHA-256, páginas extraídas, requisitos, evidências com revisão identificada e histórico de consultas. Documentos da empresa ficam exclusivamente em `company_documents` (atestados, certificações, RRT e CNPJ); `documents` guarda editais e anexos de oportunidades. Cada tabela possui uma migration de criação com sua estrutura final, sem migrations incrementais add/separate. Alterações futuras devem recriar a definição de criação da tabela. O banco existente teve seu histórico consolidado com preservação dos dados e vínculos. A origem do requisito referencia `documents`; a evidência referencia `company_documents`. Os endpoints `/api/documents/{id}` leem o acervo da empresa, e `/api/tender-documents/{id}` leem os editais, evitando ambiguidade entre IDs iguais nas duas tabelas. Valores monetários usam decimal. Datas seguem `America/Sao_Paulo`.
+Migrações incluem usuários, sessões, filas, cache, oportunidades (ID PNCP único), perfis e seus resultados, metadados dos PDFs privados com SHA-256 e histórico de consultas. Documentos da empresa ficam exclusivamente em `company_documents`; `documents` guarda editais e anexos. Não há texto de páginas nem tabela de requisitos na base. Cada tabela possui uma migration de criação com sua estrutura final, sem migrations incrementais. Bases existentes são sincronizadas com `php artisan radar:remove-pdf-text`, que remove o texto e os requisitos antigos sem apagar arquivos ou cadastros. Downloads autenticados usam `/api/documents/{id}/download` para o acervo e `/api/tender-documents/{id}/download` para editais. Valores monetários usam decimal e datas seguem `America/Sao_Paulo`.
 
 Configure `DB_CONNECTION=mysql`, `DB_DATABASE=licitaRadar_bd`, `DB_HOST`, `DB_PORT`, `DB_USERNAME` e `DB_PASSWORD` no `.env`, execute `php artisan radar:database` e depois as migrações. Credenciais de produção não estão incluídas. Se o usuário não tiver permissão CREATE, peça ao administrador do MySQL para criar o banco com charset utf8mb4 e collation utf8mb4_unicode_ci.
 
@@ -47,17 +47,15 @@ O cliente usa a API oficial `https://pncp.gov.br/api/consulta/v1/contratacoes/pr
 
 A limpeza de descartadas vencidas ocorre ao consultar pelo navegador e ao abrir painel/listagem/detalhe. O acervo e os identificadores consultados são preservados. A listagem e a exportação mostram apenas prazos abertos.
 
-O confronto usa vocabulário explícito de especialidades e reconhecimento inicial dos CNAEs de arquitetura e engenharia. Todas as especialidades reconhecidas no objeto precisam de evidência em documentos `ready`, com validade até o prazo do edital. Certidões genéricas, documentos vencidos ou dependentes de OCR não sustentam compatibilidade. O confronto é textual e preliminar: não comprova quantitativos, complexidade ou habilitação integral e precisa ser calibrado com PDFs reais. Painel, detalhe e resumos por e-mail também reavaliam o acervo atual.
+O confronto usa vocabulário explícito de especialidades e reconhecimento inicial dos CNAEs de arquitetura e engenharia. Todas as especialidades reconhecidas no objeto precisam de evidência legível nos PDFs da empresa, com validade até o prazo do edital. Certidões genéricas, documentos vencidos ou dependentes de OCR não sustentam compatibilidade. O confronto é textual e preliminar: não comprova quantitativos, complexidade ou habilitação integral e precisa ser calibrado com PDFs reais. Painel, detalhe e resumos por e-mail também reavaliam o acervo atual.
 
 A triagem textual do objeto classifica escopo como aderente, revisão ou inclui obra. É uma heurística conservadora, não uma interpretação integral do edital. Lotes separados e termos ambíguos precisam de revisão.
 
-## Documentos e parecer
+## PDFs e compatibilidade documental
 
-PDFs textuais de até 20 MB são extraídos por página. A busca de anexos ocorre somente ao clicar em Buscar anexos no PNCP. A requisição baixa os PDFs e extrai requisitos antes de retornar, sem worker, usando identificadores PNCP, impedindo redirecionamentos externos e sinalizando outros formatos. No detalhe da oportunidade é possível solicitar nova busca ou adicionar PDFs manualmente. O botão Excluir anexo remove o PDF e os requisitos originados nele, preservando a oportunidade e o acervo da empresa. A extração de novos PDFs seleciona trechos candidatos a exigências de qualificação técnica explícita, sem usar certidões ou habilitação genéricas como critério. O sistema identifica esses trechos e sugere páginas de atestados/certificações por palavras em comum. A aprovação de um requisito é manual, exige fundamentação, documento da empresa e página existente; documentos vencidos até o prazo da licitação são recusados.
+PDFs de até 20 MB ficam no storage privado. Anexos são baixados somente pelo botão Buscar anexos no PNCP e reunidos em `storage/app/private/documents/opportunities/{id}/`; uploads manuais usam a mesma pasta. A busca usa identificadores oficiais, deduplica por conteúdo e sinaliza anexos não PDF. O nome do arquivo abre o PDF original em outra aba mediante requisição autenticada, sem token na URL. Excluir anexo remove somente esse PDF e seu registro.
 
-Não há OCR automático nesta versão. PDFs digitalizados, páginas vazias ou extração parcial são sinalizados como `needs_ocr`; nunca resultam automaticamente em habilitação confirmada. Revise integralmente os anexos e cadastre requisitos que a extração tenha omitido. A conclusão “Requisitos cadastrados revisados” descreve somente os itens revisados, não garante habilitação. A interpretação precisa ser calibrada com os PDFs reais que serão fornecidos.
-
-Análise econômica, envio de propostas/inscrição e WhatsApp estão fora desta etapa, conforme o escopo acordado.
+Não há leitor de páginas, extração automática de requisitos ou texto dos PDFs persistido na base. O acervo é lido diretamente dos arquivos em memória para confrontar especialidades com o objeto. Trechos de compatibilidade são calculados para a resposta, sem gravação. Não há OCR automático: PDFs sem texto legível não sustentam compatibilidade. A revisão integral do edital cabe ao usuário.
 
 ## Operação manual pelo navegador
 
@@ -79,7 +77,7 @@ npm run format:check
 npm run build
 ```
 
-Os testes usam exclusivamente o banco MySQL isolado `licitaRadar_test_bd`, que pode ser recriado pela suíte. Nunca aponte os testes para o banco da aplicação. Eles cobrem acesso privado, triagem de escopo, prazo de validade de evidências, parecer pendente, paginação/deduplicação de PNCP, preservação de salvos, falhas externas e validação de perfis. A consulta real depende da disponibilidade e limites do PNCP. Há espaçamento entre chamadas e espera progressiva para HTTP 429/5xx; a falha preserva resultados parciais sem avançar o marco da última consulta bem-sucedida. SMTP e PDFs reais ainda precisam de validação com os dados da empresa.
+Os testes usam exclusivamente o banco MySQL isolado `licitaRadar_test_bd`, que pode ser recriado pela suíte. Nunca aponte os testes para o banco da aplicação. Eles cobrem acesso privado, triagem de escopo, leitura do acervo em memória, ausência de texto persistido, limpeza dos dados legados, paginação/deduplicação de PNCP, preservação de salvos, falhas externas e validação de perfis. A consulta real depende da disponibilidade e limites do PNCP. Há espaçamento entre chamadas e espera progressiva para HTTP 429/5xx; a falha preserva resultados parciais sem avançar o marco da última consulta bem-sucedida. SMTP e PDFs reais ainda precisam de validação com os dados da empresa.
 
 Documentação oficial: https://pncp.gov.br/api/consulta/swagger-ui/index.html
 
@@ -89,11 +87,11 @@ Documentação oficial: https://pncp.gov.br/api/consulta/swagger-ui/index.html
 - `backend/app/Http/Controllers`: controllers por área, responsáveis pelas respostas HTTP.
 - `backend/app/Http/Requests`: validação das entradas.
 - `backend/app/Integrations/Pncp`: contrato, transporte HTTP e mapeamento da API externa.
-- `backend/app/Services`: coleta PNCP, consultas, parecer, exportação, documentos, requisitos, perfis, descarte e resumos.
+- `backend/app/Services`: coleta PNCP, consultas, compatibilidade, exportação, PDFs, perfis, descarte e resumos.
 - `backend/routes/api.php`: declaração das rotas autenticadas com JWT Bearer, sem regras de negócio em closures.
 - `frontend/src/views/<domínio>`: páginas `*Page.vue` e componentes exclusivos em `components`.
 - `frontend/src/layouts`: composição da área autenticada.
-- `frontend/src/components`: componentes compartilhados de layout, navegação, autenticação, interface e leitura documental.
+- `frontend/src/components`: componentes compartilhados de layout, navegação, autenticação, interface e acesso aos PDFs.
 - `frontend/tests`: testes espelhando views/components/layouts, testes de services/composables e integração.
 - `frontend/src/composables`: estado reativo e ações por domínio; useLicitaRadar coordena a navegação e useWorkspace compartilha o contexto.
 - `frontend/src/api`: chamadas por domínio, compartilhando transporte HTTP/JWT.

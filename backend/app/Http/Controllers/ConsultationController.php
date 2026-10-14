@@ -3,12 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ConsultationRequest;
-use App\Services\SyncService;
+use App\Services\Consultations\SyncService;
 use Illuminate\Contracts\Cache\LockTimeoutException;
+use Illuminate\Http\JsonResponse;
 
 class ConsultationController extends Controller
 {
-    public function store(ConsultationRequest $request, SyncService $sync)
+    public function store(ConsultationRequest $request, SyncService $sync): JsonResponse
     {
         set_time_limit(21600);
         try {

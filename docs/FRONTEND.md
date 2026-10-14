@@ -1,12 +1,16 @@
 # Arquitetura do frontend — referência Legalis
 
+## PDFs originais — 14/10/2026
+
+Nomes dos PDFs do acervo e dos anexos são links que abrem o arquivo do storage privado em outra aba, mantendo JWT no cabeçalho e sem expor token na URL. Leitor de páginas/texto, área de requisitos, revisão e seus estados/API foram removidos. Upload de edital apresenta “Adicionar PDF”; busca PNCP apresenta somente download. A compatibilidade com o acervo permanece, calculada a partir dos arquivos. Indicador de requisitos removido do painel. Relatório em [RELATORIO-PDFS.md](RELATORIO-PDFS.md).
+
 ## Cores vigentes
 
 Por solicitação do usuário, substituída somente a paleta com base na imagem do portal fornecida: azul-petróleo `#1e4d55`, terracota `#a6532b`, verde `#89aa96`, bege `#e7d6b8`, mostarda `#d8ad58` e fundo `#f2f4f5`. Componentes, views, layout e tipografia existentes foram preservados. As referências abaixo a Terra Solar descrevem a estrutura de tema mantida; suas cores anteriores foram substituídas. O e-mail de resumo acompanha a paleta.
 
 ## Seleção dos perfis da consulta
 
-`components/profiles/ConsultationProfiles.vue` compõe AppCard e AppCheckbox para selecionar vários perfis ativos por IDs numéricos. É compartilhado pelo Painel e pela lista de Oportunidades. `useConsultationProfiles` isola a seleção, inicialmente vazia, e remove IDs de perfis pausados/excluídos ao atualizar as opções. `useOpportunities` envia uma cópia da seleção no corpo da consulta; `useLicitaRadar` carrega as opções e limpa a escolha ao encerrar a sessão.
+`components/profiles/ConsultationProfiles.vue` compõe AppCard e AppCheckbox para selecionar vários perfis ativos por IDs numéricos, somente em Oportunidades. Os botões de consulta da Visão geral usam a seleção corrente do workspace, sem seletor próprio. `useConsultationProfiles` isola a seleção, inicialmente vazia, e remove IDs de perfis pausados/excluídos ao atualizar as opções. `useOpportunities` envia uma cópia da seleção no corpo da consulta; `useLicitaRadar` carrega as opções e limpa a escolha ao encerrar a sessão.
 
 Sem perfis marcados, aplica somente o acervo. A seleção vale para a próxima consulta e não altera a lista histórica de pendentes. Identificadores PNCP já consultados não são reavaliados ao trocar os perfis, conforme aviso na interface. Checkboxes ficam bloqueadas durante ações em andamento. A escolha permanece ao navegar entre telas, mas não é persistida após recarregar a aplicação.
 
@@ -49,13 +53,12 @@ frontend/
       profiles/components/SearchProfileDialog.vue
       opportunities/OpportunityListPage.vue
       opportunities/OpportunityShowPage.vue
-      opportunities/components/     parecer, anexos, requisitos e diálogos específicos
+      opportunities/components/     compatibilidade, anexos e confirmação de exclusão
     components/
       layout/                       SideBar, HeaderBar e PageContainer
       navigation/                   SideBarNav
       public/AuthShell.vue          apresentação e slot para autenticação
       ui/                           AppDialog e ActionFeedback
-      documents/DocumentReaderDialog.vue
     composables/                    estado reativo e ações por domínio
     api/                            chamadas à API por domínio
     services/                       HTTP/JWT, downloads e atualização após ações

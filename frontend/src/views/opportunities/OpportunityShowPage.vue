@@ -6,9 +6,7 @@ import { labels } from '@/constants/radar'
 import { date, money } from '@/utils/formatters'
 import OpportunityVerdict from './components/OpportunityVerdict.vue'
 import OpportunityAttachments from './components/OpportunityAttachments.vue'
-import OpportunityRequirements from './components/OpportunityRequirements.vue'
 import DeleteAttachmentDialog from './components/DeleteAttachmentDialog.vue'
-import RequirementReviewDialog from './components/RequirementReviewDialog.vue'
 const { detail, go } = useWorkspace()
 </script>
 <template>
@@ -32,5 +30,5 @@ const { detail, go } = useWorkspace()
             /></a>
         </div>
     </div>
-    <OpportunityVerdict /><OpportunityAttachments /><OpportunityRequirements /><DeleteAttachmentDialog /><RequirementReviewDialog />
+    <OpportunityVerdict /><OpportunityAttachments /><DeleteAttachmentDialog />
 </template>

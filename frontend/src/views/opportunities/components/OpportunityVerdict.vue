@@ -1,12 +1,11 @@
 <script setup>
 import { AppCard, AppButton } from '@/components/ui'
 import { useWorkspace } from '@/composables/useWorkspace'
-const { detail, readDocument } = useWorkspace()
+const { detail, openDocument } = useWorkspace()
 </script>
 <template>
     <AppCard as="section" class="panel verdict">
-        <span class="eyebrow">PARECER DOCUMENTAL PRELIMINAR</span>
-        <h2>{{ detail.verdict }}</h2>
+        <span class="eyebrow">COMPATIBILIDADE COM O ACERVO</span>
         <p>{{ detail.opportunity.scope_reason }}</p>
         <p>{{ detail.notice }}</p>
         <h3>Confronto do objeto com o acervo</h3>
@@ -16,7 +15,11 @@ const { detail, readDocument } = useWorkspace()
             :key="e.document_id + '-' + e.page"
             class="candidate"
         >
-            <AppButton variant="ghost" class="text-button" @click="readDocument(e.document_id)">
+            <AppButton
+                variant="ghost"
+                class="text-button"
+                @click="openDocument({ id: e.document_id })"
+            >
                 {{ e.name }} · página {{ e.page }}
             </AppButton>
             <p>{{ e.concepts.join(', ') }}</p>

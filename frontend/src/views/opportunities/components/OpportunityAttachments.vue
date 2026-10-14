@@ -3,7 +3,6 @@ import { AppFileUpload } from '@/components/forms'
 import { AppCard, AppButton } from '@/components/ui'
 import { FileText } from '@lucide/vue'
 import { useWorkspace } from '@/composables/useWorkspace'
-import { labels } from '@/constants/radar'
 import { uploadRejectionMessage } from '@/utils/upload'
 const {
     detail,
@@ -17,7 +16,7 @@ const {
     refreshAttachments,
     chosenFile,
     upload,
-    readDocument,
+    openDocument,
     deleteAttachment,
 } = useWorkspace()
 </script>
@@ -32,7 +31,7 @@ const {
                 :disabled="busy || isCoolingDown('attachments:' + detail.opportunity.id)"
                 :title="retryMessage('attachments:' + detail.opportunity.id)"
             >
-                {{ fetchingAttachments ? 'Buscando e extraindo PDFs…' : 'Buscar anexos no PNCP' }}
+                {{ fetchingAttachments ? 'Baixando PDFs…' : 'Buscar anexos no PNCP' }}
             </AppButton>
         </div>
         <p v-if="detail.opportunity.attachments_error" class="error">
@@ -43,7 +42,7 @@ const {
             {{
                 {
                     pending: 'Ainda não consultado',
-                    running: 'Buscando e extraindo PDFs',
+                    running: 'Baixando PDFs',
                     ready: 'Concluída',
                     partial: 'Concluída com anexos para revisão',
                     empty: 'Nenhum anexo encontrado',
@@ -57,10 +56,10 @@ const {
             :disabled="busy"
             @click="perform(refreshAttachments)"
         >
-            Atualizar anexos e requisitos
+            Atualizar anexos
         </AppButton>
         <p v-if="detail.opportunity.attachments_status === 'pending'">
-            Clique em Buscar anexos no PNCP para baixar os PDFs e extrair os requisitos.
+            Clique em Buscar anexos no PNCP para baixar os PDFs.
         </p>
         <p>
             Os anexos são buscados somente quando você solicita. Você também pode adicionar PDFs
@@ -80,15 +79,15 @@ const {
                 @reject="error = uploadRejectionMessage($event)"
                 @select="error = ''"
             /><AppButton variant="primary" type="submit" class="primary" :disabled="busy"
-                >Extrair requisitos</AppButton
+                >Adicionar PDF</AppButton
             >
         </form>
         <div v-for="doc in detail.opportunity.documents" :key="doc.id" class="activity-row">
-            <FileText :size="20" /><strong>{{ doc.name }}</strong
-            ><span :class="['badge', doc.status]">{{ labels[doc.status] }}</span
-            ><AppButton variant="ghost" class="text-button" @click="readDocument(doc.id, true)"
-                >Ler páginas</AppButton
-            ><AppButton
+            <FileText :size="20" />
+            <a href="#" target="_blank" rel="noopener" @click.prevent="openDocument(doc, true)">
+                <strong>{{ doc.name }}</strong>
+            </a>
+            <AppButton
                 variant="ghost"
                 class="text-button"
                 :disabled="busy"

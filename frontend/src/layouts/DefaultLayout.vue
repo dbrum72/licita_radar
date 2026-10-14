@@ -2,7 +2,6 @@
 import { computed } from 'vue'
 import { SideBar, HeaderBar, PageContainer } from '@/components/layout'
 import ActionFeedback from '@/components/ui/ActionFeedback/index.vue'
-import DocumentReaderDialog from '@/components/documents/DocumentReaderDialog.vue'
 import { useWorkspace } from '@/composables/useWorkspace'
 import DashboardPage from '@/views/dashboard/DashboardPage.vue'
 import OpportunityListPage from '@/views/opportunities/OpportunityListPage.vue'
@@ -44,5 +43,4 @@ const page = computed(() => (view.value === 'detail' && !detail.value ? null : p
             </PageContainer>
         </div>
     </div>
-    <DocumentReaderDialog />
 </template>

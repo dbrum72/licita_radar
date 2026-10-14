@@ -129,20 +129,11 @@
 }
 .stats > .card:nth-child(3) {
     box-shadow:
-        inset 3px 0 var(--color-warning),
+        inset 3px 0 var(--color-highlight),
         var(--shadow-sm);
 }
 .stats > .card:nth-child(3) strong,
 .stats > .card:nth-child(3) svg {
-    color: var(--color-on-warning);
-}
-.stats > .card:nth-child(4) {
-    box-shadow:
-        inset 3px 0 var(--color-highlight),
-        var(--shadow-sm);
-}
-.stats > .card:nth-child(4) strong,
-.stats > .card:nth-child(4) svg {
     color: var(--color-highlight);
 }
 .app-table-container {

@@ -5,11 +5,10 @@ namespace Tests\Feature;
 use App\Models\CompanyDocument;
 use App\Models\Document;
 use App\Models\Opportunity;
-use App\Models\Requirement;
 use App\Models\SearchProfile;
 use App\Models\User;
-use App\Services\OpportunityLifecycleService;
-use App\Services\SyncService;
+use App\Services\Consultations\SyncService;
+use App\Services\Opportunities\OpportunityLifecycleService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Routing\Middleware\ThrottleRequests;
@@ -32,7 +31,7 @@ class OpportunityLifecycleTest extends TestCase
 
     private function companyDocument(): CompanyDocument
     {
-        return CompanyDocument::create(['name' => 'acervo.pdf', 'kind' => 'rrt', 'path' => 'company.pdf', 'sha256' => str_repeat('a', 64),
+        return $this->createCompanyDocument(['name' => 'acervo.pdf', 'kind' => 'rrt', 'path' => 'company.pdf', 'sha256' => str_repeat('a', 64),
             'status' => 'ready', 'pages' => [['number' => 1, 'text' => 'Registro de elaboração de projetos arquitetônicos para edificações.']]]);
     }
 
@@ -94,13 +93,11 @@ class OpportunityLifecycleTest extends TestCase
         $activeExpired = $this->opportunity(3, now()->subDay());
         $company = $this->companyDocument();
         $doc = Document::create(['opportunity_id' => $op->id, 'name' => 'edital.pdf', 'kind' => 'tender', 'path' => 'documents/test.pdf', 'sha256' => str_repeat('b', 64)]);
-        $req = Requirement::create(['opportunity_id' => $op->id, 'source_document_id' => $doc->id, 'source_page' => 1, 'description' => 'Atestado', 'evidence_document_id' => $company->id]);
         $profile = SearchProfile::create(['name' => 'Projetos', 'keywords' => [], 'active' => true]);
         DB::table('profile_opportunity')->insert(['search_profile_id' => $profile->id, 'opportunity_id' => $op->id, 'created_at' => now(), 'updated_at' => now()]);
         $this->assertSame(1, app(OpportunityLifecycleService::class)->pruneExpiredDiscarded());
         $this->assertNull($op->fresh());
         $this->assertNull($doc->fresh());
-        $this->assertNull($req->fresh());
         $this->assertDatabaseCount('profile_opportunity', 0);
         $this->assertNotNull($company->fresh());
         $this->assertNotNull($future->fresh());

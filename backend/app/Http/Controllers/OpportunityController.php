@@ -2,48 +2,51 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\OpportunityBookmarkRequest;
+use App\Http\Requests\OpportunityDiscardRequest;
 use App\Http\Requests\OpportunityExportRequest;
 use App\Http\Requests\OpportunityFiltersRequest;
 use App\Models\Opportunity;
-use App\Services\OpportunityAnalysisService;
-use App\Services\OpportunityLifecycleService;
-use App\Services\OpportunityPdfService;
-use App\Services\OpportunityQueryService;
-use Illuminate\Http\Request;
+use App\Services\Opportunities\OpportunityAnalysisService;
+use App\Services\Opportunities\OpportunityLifecycleService;
+use App\Services\Opportunities\OpportunityPdfService;
+use App\Services\Opportunities\OpportunityQueryService;
+use Illuminate\Http\JsonResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 class OpportunityController extends Controller
 {
     public function __construct(
-        private OpportunityQueryService $opportunityQueryService,
-        private OpportunityAnalysisService $opportunityAnalysisService,
-        private OpportunityLifecycleService $opportunityLifecycleService,
+        private readonly OpportunityQueryService $opportunityQueryService,
+        private readonly OpportunityAnalysisService $opportunityAnalysisService,
+        private readonly OpportunityLifecycleService $opportunityLifecycleService,
     ) {}
 
-    public function opportunities(OpportunityFiltersRequest $r)
+    public function index(OpportunityFiltersRequest $r): JsonResponse
     {
         return response()->json($this->opportunityQueryService->paginate($r->validated()));
     }
 
-    public function opportunity(Opportunity $opportunity)
+    public function show(Opportunity $opportunity): JsonResponse
     {
-        return $this->opportunityAnalysisService->detail($opportunity);
+        return response()->json($this->opportunityAnalysisService->detail($opportunity));
     }
 
-    public function bookmark(Opportunity $opportunity, Request $r)
+    public function bookmark(Opportunity $opportunity, OpportunityBookmarkRequest $r): JsonResponse
     {
-        $data = $r->validate(['bookmarked' => 'required|boolean']);
+        $data = $r->validated();
 
-        return $this->opportunityLifecycleService->bookmark($opportunity, $data['bookmarked']);
+        return response()->json($this->opportunityLifecycleService->bookmark($opportunity, $data['bookmarked']));
     }
 
-    public function discard(Opportunity $opportunity, Request $r)
+    public function discard(Opportunity $opportunity, OpportunityDiscardRequest $r): JsonResponse
     {
-        $data = $r->validate(['discarded' => 'required|boolean']);
+        $data = $r->validated();
 
-        return $this->opportunityLifecycleService->discard($opportunity, $data['discarded'], $r->user()->id);
+        return response()->json($this->opportunityLifecycleService->discard($opportunity, $data['discarded'], $r->user()->id));
     }
 
-    public function exportOpportunities(OpportunityExportRequest $r, OpportunityPdfService $pdf)
+    public function export(OpportunityExportRequest $r, OpportunityPdfService $pdf): Response
     {
         $data = $r->validated();
         $ordered = $pdf->selection($data['ids']);

@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\DigestService;
+use App\Services\Digests\DigestService;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\JsonResponse;
 
