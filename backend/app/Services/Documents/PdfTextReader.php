@@ -12,9 +12,21 @@ class PdfTextReader
     public function pages(Document $document): array
     {
         try {
-            $pdf = (new Parser)->parseFile(Storage::disk('local')->path($document->getRawOriginal('path')));
+            return $this->fromBytes(Storage::disk('local')->get($document->getRawOriginal('path')));
+        } catch (\Throwable $exception) {
+            report($exception);
 
-            return array_map(fn ($page, $index) => ['number' => $index + 1, 'text' => trim($page->getText())], $pdf->getPages(), array_keys($pdf->getPages()));
+            return [];
+        }
+    }
+
+    public function fromBytes(string $bytes): array
+    {
+        try {
+            $pdf = (new Parser)->parseContent($bytes);
+            $pages = array_values($pdf->getPages());
+
+            return array_map(fn ($page, $index) => ['number' => $index + 1, 'text' => trim($page->getText())], $pages, array_keys($pages));
         } catch (\Throwable $exception) {
             report($exception);
 

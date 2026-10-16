@@ -7,6 +7,7 @@ import { useAsyncAction } from '@/composables/useAsyncAction'
 import { useAuth } from '@/composables/useAuth'
 import { useProfiles } from '@/composables/useProfiles'
 import { useDocuments } from '@/composables/useDocuments'
+import { useDocumentAnalysis } from '@/composables/useDocumentAnalysis'
 import { useOpportunities } from '@/composables/useOpportunities'
 
 export function useLicitaRadar() {
@@ -29,6 +30,7 @@ export function useLicitaRadar() {
         detail,
         refreshAttachments: () => opportunities.refreshAttachments(),
     })
+    const documentAnalysis = useDocumentAnalysis({ ...actions, detail })
     const opportunities = useOpportunities({
         perform,
         message,
@@ -95,6 +97,7 @@ export function useLicitaRadar() {
         ...auth,
         ...profiles,
         ...documents,
+        ...documentAnalysis,
         ...opportunities,
     }
 }

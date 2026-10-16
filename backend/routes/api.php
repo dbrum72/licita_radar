@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ConsultationController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DigestController;
+use App\Http\Controllers\DocumentAnalysisController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\OpportunityController;
 use App\Http\Controllers\SearchProfileController;
@@ -21,6 +22,10 @@ Route::group([], function () {
         Route::get('opportunities', [OpportunityController::class, 'index']);
         Route::post('opportunities/export', [OpportunityController::class, 'export'])->middleware('throttle:10,1');
         Route::get('opportunities/{opportunity}', [OpportunityController::class, 'show']);
+        Route::get('opportunities/{opportunity}/analysis', [DocumentAnalysisController::class, 'show']);
+        Route::post('opportunities/{opportunity}/analysis', [DocumentAnalysisController::class, 'store'])->middleware('throttle:document-analysis');
+        Route::get('opportunities/{opportunity}/analysis/download', [DocumentAnalysisController::class, 'download']);
+        Route::get('opportunities/{opportunity}/analysis/sources/{source}', [DocumentAnalysisController::class, 'source'])->where('source', '[a-z0-9-]+');
         Route::patch('opportunities/{opportunity}/discard', [OpportunityController::class, 'discard']);
         Route::post('opportunities/{opportunity}/attachments', [TenderAttachmentController::class, 'store'])->middleware('throttle:tender-attachments');
         Route::patch('opportunities/{opportunity}', [OpportunityController::class, 'bookmark']);

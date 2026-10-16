@@ -36,6 +36,11 @@ class AppServiceProvider extends ServiceProvider
             RateLimiter::for($action, fn (Request $request) => Limit::perMinutes(5, 1)
                 ->by($action.':'.$request->user()->id)->response($response));
         }
+        RateLimiter::for('document-analysis', function (Request $request) use ($response) {
+            $opportunity = $request->route('opportunity');
+
+            return Limit::perMinutes(5, 2)->by('document-analysis:'.$request->user()->id.':'.($opportunity instanceof Opportunity ? $opportunity->id : $opportunity))->response($response);
+        });
         foreach (['auth-login', 'auth-setup'] as $action) {
             RateLimiter::for($action, fn (Request $request) => Limit::perMinute(5)
                 ->by($action.':'.$request->ip())->response($response));

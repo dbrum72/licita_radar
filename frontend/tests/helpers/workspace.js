@@ -42,6 +42,8 @@ export function createWorkspace() {
         }),
         pendingDelete: ref(null),
         fetchingAttachments: ref(false),
+        analysis: ref({ configured: false, model: 'gpt-5.4-mini', report: null, stale: false }),
+        generatingAnalysis: ref(false),
         isCoolingDown: vi.fn(() => false),
         retryMessage: vi.fn(() => ''),
         perform: vi.fn(async (action) => action()),
@@ -70,6 +72,10 @@ export function createWorkspace() {
         'deleteAttachment',
         'confirmDelete',
         'cancelDelete',
+        'generateAnalysis',
+        'refreshAnalysis',
+        'downloadAnalysis',
+        'openAnalysisSource',
     ]) {
         state[action] = vi.fn()
     }

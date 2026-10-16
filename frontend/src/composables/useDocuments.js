@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import { downloadBlob } from '@/services/download'
+import { openPdfTab } from '@/services/pdf'
 import { useDeleteConfirmation } from '@/composables/useDeleteConfirmation'
 import { documentsApi } from '@/api/documents'
 import { opportunitiesApi } from '@/api/opportunities'
@@ -51,21 +52,7 @@ export function useDocuments({ perform, busy, error, message, detail, refreshAtt
 
     async function openDocument(doc, tender = false) {
         if (busy.value) return
-        const tab = window.open('', '_blank')
-        if (tab) tab.opener = null
-        await perform(async () => {
-            if (!tab) throw new Error('Permita abrir uma nova aba para visualizar o PDF.')
-            try {
-                const blob = await documentsApi.download(doc.id, tender)
-                if (tab.closed) return
-                const url = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }))
-                tab.location.replace(url)
-                setTimeout(() => URL.revokeObjectURL(url), 60000)
-            } catch (failure) {
-                tab.close()
-                throw failure
-            }
-        })
+        await perform(() => openPdfTab(() => documentsApi.download(doc.id, tender)))
     }
 
     return {
