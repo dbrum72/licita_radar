@@ -49,7 +49,11 @@ class OpportunityDocumentAnalysis
     {
         $lock = Cache::lock('opportunity-document-analysis:'.$opportunity->id, config('document_analysis.timeout') * config('document_analysis.max_calls') + 600);
         abort_unless($lock->get(), 409, 'A análise desta oportunidade já está em andamento.');
+        $previousTimeLimit = (int) ini_get('max_execution_time');
         try {
+            // On Windows PHP counts HTTP waits toward its execution limit.
+            // Allow every bounded provider call plus PDF preparation and report storage.
+            set_time_limit(max(1, (int) config('document_analysis.timeout')) * max(1, (int) config('document_analysis.max_calls')) + 600);
             $sources = $this->documents->inventory($opportunity);
             $fingerprint = $this->documents->fingerprint($opportunity, $sources);
             $previous = $this->read($opportunity);
@@ -63,7 +67,7 @@ class OpportunityDocumentAnalysis
             $context = ['opportunity' => $this->documents->opportunity($opportunity), 'analysis_date' => today('America/Sao_Paulo')->toDateString(),
                 'documents' => array_map($this->documents->publicSource(...), $prepared['sources']), 'warnings' => $prepared['warnings']];
             $result = $this->pipeline->analyze($opportunity, $context, $prepared);
-            $analysis = $this->validator->validate($result['analysis'], $prepared['sources'], $opportunity);
+            $analysis = $this->validator->validate($result['analysis'], $prepared['sources'], $opportunity, referenceWarnings: $result['reference_warnings'] ?? []);
             $analysis['warnings'] = array_values(array_unique([...$prepared['warnings'], ...$analysis['warnings']]));
             $opportunity->refresh();
             abort_unless($fingerprint === $this->documents->fingerprint($opportunity, $this->documents->inventory($opportunity)), 409, 'Os documentos ou dados da oportunidade mudaram durante a análise. O relatório anterior foi preservado; atualize e tente novamente.');
@@ -84,9 +88,12 @@ class OpportunityDocumentAnalysis
                 }
             }
 
+            $disk->delete(dirname($path).'/progress.json');
+
             return ['configured' => true, 'model' => config('document_analysis.model'), 'report' => $report, 'stale' => false, 'cached' => false];
         } finally {
             $lock->release();
+            set_time_limit($previousTimeLimit);
         }
     }
 

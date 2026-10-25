@@ -8,6 +8,7 @@ use App\Models\Opportunity;
 use App\Models\User;
 use App\Services\Documents\TenderAttachmentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
@@ -101,6 +102,11 @@ class DocumentImportTest extends TestCase
         $this->assertSame(1, Document::count());
         $this->assertSame([$path], Storage::disk('local')->allFiles($directory));
         $this->assertSame('ready', $op->fresh()->attachments_status);
+        $documentId = Document::sole()->id;
+        Storage::disk('local')->delete($path);
+        $job->fetch($op->id);
+        $this->assertSame($documentId, Document::sole()->id);
+        Storage::disk('local')->assertExists($path);
         Http::assertNotSent(fn ($r) => str_contains($r->url(), 'untrusted.example'));
 
         $other = $op->replicate();
@@ -128,6 +134,60 @@ class DocumentImportTest extends TestCase
         $result = iterator_to_array(app(PncpClient::class)->openProposals(4));
         $this->assertSame([], $result);
         Http::assertSentCount(2);
+    }
+
+    public function test_connection_failures_are_retried_with_a_finite_limit(): void
+    {
+        $attempts = 0;
+        $alwaysFail = false;
+        Http::fake(function () use (&$attempts, &$alwaysFail) {
+            $attempts++;
+            if ($alwaysFail || $attempts === 1) {
+                throw new ConnectionException('Simulated network failure');
+            }
+
+            return Http::response([], 204);
+        });
+        $this->assertSame(204, app(PncpClient::class)->request('https://pncp.gov.br/test')->status());
+        $this->assertSame(2, $attempts);
+        $attempts = 0;
+        $alwaysFail = true;
+        try {
+            app(PncpClient::class)->request('https://pncp.gov.br/test');
+            $this->fail('Expected exhausted connection attempts');
+        } catch (ConnectionException $exception) {
+            $this->assertSame(4, $attempts);
+        }
+    }
+
+    public function test_one_failed_download_does_not_prevent_remaining_attachments(): void
+    {
+        $this->createCompanyDocument(['name' => 'acervo.pdf', 'kind' => 'rrt', 'sha256' => str_repeat('a', 64),
+            'pages' => [['number' => 1, 'text' => 'Registro de elaboração de projeto arquitetônico para edificação.']]]);
+        $op = Opportunity::create(['pncp_id' => 'partial-2026-1', 'cnpj' => '12345678000100', 'year' => 2026, 'sequence' => 1,
+            'object' => 'Projeto arquitetonico', 'agency' => 'Prefeitura', 'modality_id' => 4, 'modality' => 'Concorrência',
+            'scope_reason' => 'Projeto', 'scope_status' => 'relevant', 'deadline' => now()->addDays(20), 'source' => []]);
+        $base = 'https://pncp.gov.br/api/pncp/v1/orgaos/12345678000100/compras/2026/1/arquivos';
+        $optionsSeen = [];
+        Http::fake(function ($request, $options) use ($base, &$optionsSeen) {
+            $optionsSeen[] = $options;
+            if ($request->url() === $base) {
+                return Http::response([['sequencialDocumento' => 1, 'titulo' => 'Falha'], ['sequencialDocumento' => 2, 'titulo' => 'Edital']]);
+            }
+            if ($request->url() === $base.'/1') {
+                throw new ConnectionException('Simulated network failure');
+            }
+
+            return Http::response($this->pdf());
+        });
+        $this->actingAs(User::factory()->create())->postJson('/api/opportunities/'.$op->id.'/attachments')
+            ->assertOk()->assertJsonPath('attachments_status', 'partial');
+        $this->assertSame('Edital.pdf', $op->documents()->sole()->name);
+        Storage::disk('local')->assertExists($op->documents()->sole()->getRawOriginal('path'));
+        foreach ($optionsSeen as $options) {
+            $this->assertSame(180, $options['timeout']);
+            $this->assertSame(30, $options['connect_timeout']);
+        }
     }
 
     public function test_manual_attachment_failure_is_reported_and_can_be_retried(): void

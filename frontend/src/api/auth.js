@@ -1,16 +1,22 @@
-import { api } from '@/services/http'
-import { clearToken } from '@/services/token'
+import http from '@/services/http'
+import { clearToken, setToken } from '@/services/token'
 
 export const authApi = {
-    initialize: () => api('auth/status', { timeoutMs: 15000 }),
-    current: () => api('me', { timeoutMs: 15000 }),
-    login: (body) => api('login', { method: 'POST', body }),
-    setup: (body) => api('setup', { method: 'POST', body }),
+    initialize: async () => (await http('auth/status')).data,
+    current: async () => (await http('me')).data,
+    login: (data) => authenticate('login', data),
+    setup: (data) => authenticate('setup', data),
     logout: async () => {
         try {
-            return await api('logout', { method: 'POST' })
+            return (await http('logout', { method: 'POST', timeout: 0 })).data
         } finally {
             clearToken()
         }
     },
+}
+
+async function authenticate(url, credentials) {
+    const { data } = await http.post(url, credentials)
+    setToken(data.access_token)
+    return data
 }

@@ -1,10 +1,10 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
-import { api } from '@/services/http'
+import api from '@/services/http'
 import { useAsyncAction } from '@/composables/useAsyncAction'
 import { useDocumentAnalysis } from '@/composables/useDocumentAnalysis'
 
-vi.mock('@/services/http', () => ({ api: vi.fn() }))
+vi.mock('@/services/http', () => ({ default: vi.fn() }))
 beforeEach(() => vi.clearAllMocks())
 
 function setup() {
@@ -16,9 +16,9 @@ function setup() {
 it('gera somente sob solicitação e reconhece o reaproveitamento sem nova cobrança', async () => {
     const state = setup()
     expect(api).not.toHaveBeenCalled()
-    api.mockResolvedValue({ configured: true, report: { analysis: {} }, cached: true })
+    api.mockResolvedValue({ data: { configured: true, report: { analysis: {} }, cached: true } })
     await state.generateAnalysis()
-    expect(api).toHaveBeenCalledWith('opportunities/4/analysis', { method: 'POST' })
+    expect(api).toHaveBeenCalledWith('opportunities/4/analysis', { method: 'POST', timeout: 0 })
     expect(state.analysis.value.report).toBeTruthy()
     expect(state.message.value).toContain('Nenhuma nova chamada')
     expect(state.generatingAnalysis.value).toBe(false)
@@ -34,7 +34,7 @@ it('não aplica um resultado tardio à oportunidade que o usuário abriu depois'
     )
     const pending = state.generateAnalysis()
     state.detail.value = { opportunity: { id: 5 }, analysis: { configured: true, report: null } }
-    resolve({ report: { analysis: {} } })
+    resolve({ data: { report: { analysis: {} } } })
     await pending
     expect(state.detail.value.analysis.report).toBeNull()
 })
@@ -46,7 +46,9 @@ it('preserva o relatório ao falhar e atualiza por GET sem repetir a geração',
     await state.generateAnalysis()
     expect(state.error.value).toBe('IA indisponível')
     expect(state.analysis.value.report.analysis.summary).toBe('Anterior')
-    api.mockResolvedValueOnce({ configured: true, report: { analysis: { summary: 'Atual' } } })
+    api.mockResolvedValueOnce({
+        data: { configured: true, report: { analysis: { summary: 'Atual' } } },
+    })
     await state.refreshAnalysis()
     expect(api).toHaveBeenLastCalledWith('opportunities/4/analysis')
     expect(state.analysis.value.report.analysis.summary).toBe('Atual')

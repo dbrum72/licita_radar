@@ -51,7 +51,7 @@ const {
         </div>
         <AppButton
             variant="primary"
-            class="primary"
+            class="primary consultation-button"
             @click="synchronize"
             :disabled="busy || isCoolingDown('consultation')"
             :title="retryMessage('consultation')"
@@ -281,3 +281,10 @@ const {
         </AppButton>
     </div>
 </template>
+
+<style scoped>
+.consultation-button {
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+</style>

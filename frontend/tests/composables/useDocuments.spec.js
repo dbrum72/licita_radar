@@ -1,10 +1,10 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
-import { api } from '@/services/http'
+import api from '@/services/http'
 import { useAsyncAction } from '@/composables/useAsyncAction'
 import { useDocuments } from '@/composables/useDocuments'
 
-vi.mock('@/services/http', () => ({ api: vi.fn() }))
+vi.mock('@/services/http', () => ({ default: vi.fn() }))
 afterEach(() => {
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
@@ -38,7 +38,7 @@ it('abre a aba antes da requisição autenticada e exibe o PDF do storage', asyn
     expect(tab.opener).toBeNull()
     expect(api).toHaveBeenCalledWith('tender-documents/4/download', { responseType: 'blob' })
     expect(tab.location.replace).not.toHaveBeenCalled()
-    resolve(new Blob(['%PDF-original']))
+    resolve({ data: new Blob(['%PDF-original']) })
     await pending
     expect(createObjectURL.mock.calls[0][0].type).toBe('application/pdf')
     expect(tab.location.replace).toHaveBeenCalledWith('blob:pdf')

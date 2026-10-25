@@ -3,6 +3,7 @@
 namespace App\Integrations\Pncp;
 
 use App\Integrations\Pncp\Contracts\PncpClient;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
@@ -16,7 +17,19 @@ class HttpPncpClient implements PncpClient
             if (! app()->environment('testing')) {
                 usleep((int) config('radar.request_delay_ms') * 1000);
             }
-            $response = Http::acceptJson()->withOptions(['allow_redirects' => false, ...$options])->connectTimeout(10)->timeout(60)->get($url, $query);
+            try {
+                $response = Http::acceptJson()->withOptions(['allow_redirects' => false, ...$options])
+                    ->connectTimeout($options['connect_timeout'] ?? 10)->timeout($options['timeout'] ?? 60)->get($url, $query);
+            } catch (ConnectionException $exception) {
+                if ($attempt === 3) {
+                    throw $exception;
+                }
+                if (! app()->environment('testing')) {
+                    sleep(5 * ($attempt + 1));
+                }
+
+                continue;
+            }
             if ($response->status() !== 429 && ! $response->serverError()) {
                 return $response->throw();
             }

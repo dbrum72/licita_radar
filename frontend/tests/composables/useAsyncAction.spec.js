@@ -8,7 +8,9 @@ it('keeps rate-limit waits isolated per action and never submits automatically',
     vi.useFakeTimers()
     const scope = effectScope()
     const actions = scope.run(() => useAsyncAction(() => {}))
-    const blocked = vi.fn().mockRejectedValue({ status: 429, retryAfter: 3, message: 'Aguarde' })
+    const blocked = vi.fn().mockRejectedValue({
+        response: { status: 429, data: { retry_after: 3, message: 'Aguarde' } },
+    })
     await actions.perform(blocked, 'consultation')
     expect(actions.isCoolingDown('consultation')).toBe(true)
     expect(actions.isCoolingDown('digest')).toBe(false)
@@ -29,13 +31,16 @@ it('retains field errors and reports an expired authenticated session', async ()
     const actions = useAsyncAction(expired)
     await actions.perform(() =>
         Promise.reject({
-            status: 422,
-            message: 'Nome inválido',
-            fields: { name: ['Obrigatório'] },
+            response: {
+                status: 422,
+                data: { message: 'Nome inválido', errors: { name: ['Obrigatório'] } },
+            },
         }),
     )
     expect(actions.fieldErrors.value.name).toEqual(['Obrigatório'])
-    await actions.perform(() => Promise.reject({ status: 401, message: 'Entre novamente' }))
+    await actions.perform(() =>
+        Promise.reject({ response: { status: 401, data: { message: 'Entre novamente' } } }),
+    )
     expect(expired).toHaveBeenCalledOnce()
     expect(actions.fieldErrors.value).toEqual({})
 })

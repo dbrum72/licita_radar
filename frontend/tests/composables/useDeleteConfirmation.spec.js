@@ -1,10 +1,10 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
-import { api } from '@/services/http'
+import api from '@/services/http'
 import { useAsyncAction } from '@/composables/useAsyncAction'
 import { useDocuments } from '@/composables/useDocuments'
 
-vi.mock('@/services/http', () => ({ api: vi.fn() }))
+vi.mock('@/services/http', () => ({ default: vi.fn() }))
 beforeEach(() => vi.clearAllMocks())
 
 it('requires explicit confirmation and preserves a company reader with the same ID', async () => {
@@ -16,7 +16,7 @@ it('requires explicit confirmation and preserves a company reader with the same 
     documents.cancelDelete()
     expect(documents.pendingDelete.value).toBeNull()
     documents.deleteAttachment({ id: 1, name: 'Edital' })
-    api.mockResolvedValueOnce(null)
+    api.mockResolvedValueOnce({ data: null })
     await documents.confirmDelete()
     expect(api).toHaveBeenCalledWith('tender-documents/1', { method: 'DELETE' })
     expect(documents.pendingDelete.value).toBeNull()

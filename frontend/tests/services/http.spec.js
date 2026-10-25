@@ -1,115 +1,134 @@
-import { afterEach, expect, it, vi } from 'vitest'
-import { api } from '@/services/http'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { AxiosError, AxiosHeaders } from 'axios'
+import client from '@/services/http'
+import { authApi } from '@/api/auth'
+import { opportunitiesApi } from '@/api/opportunities'
+import { apiErrorMessage } from '@/utils/apiErrorMessage'
 import { clearToken, setToken, getToken } from '@/services/token'
 
+const originalAdapter = client.defaults.adapter
+let adapter
+
+beforeEach(() => {
+    adapter = vi.fn(async (config) => ({ data: {}, status: 200, headers: {}, config }))
+    client.defaults.adapter = adapter
+})
+
 afterEach(() => {
-    vi.useRealTimers()
+    client.defaults.adapter = originalAdapter
     clearToken()
-    vi.unstubAllGlobals()
 })
 
-it('encerra a espera de inicialização quando a API não responde', async () => {
-    vi.useFakeTimers()
-    const fetch = vi.fn(
-        (_url, options) =>
-            new Promise((_resolve, reject) => {
-                options.signal.addEventListener('abort', () =>
-                    reject(new DOMException('Aborted', 'AbortError')),
-                )
-            }),
-    )
-    vi.stubGlobal('fetch', fetch)
-    const result = expect(api('auth/status', { timeoutMs: 15000 })).rejects.toMatchObject({
-        code: 'API_TIMEOUT',
-        message: expect.stringContaining('backend'),
+function respond(data, status = 200, headers = {}) {
+    return async (config) => {
+        const response = { data, status, headers: new AxiosHeaders(headers), config }
+        if (status >= 400)
+            throw new AxiosError('Request failed', 'ERR_BAD_RESPONSE', config, {}, response)
+        return response
+    }
+}
+
+it('usa o timeout de leitura e mantém ações manuais sem timeout de 15 segundos', async () => {
+    adapter.mockRejectedValueOnce(new AxiosError('Timeout', 'ECONNABORTED'))
+    await expect(client('auth/status', { timeout: 15000 })).rejects.toMatchObject({
+        code: 'ECONNABORTED',
     })
-    await vi.advanceTimersByTimeAsync(15000)
-    await result
-    expect(fetch.mock.calls[0][1].signal.aborted).toBe(true)
+    expect(adapter.mock.calls[0][0].timeout).toBe(15000)
+    await opportunitiesApi.consult()
+    expect(adapter.mock.calls[1][0].timeout).toBe(0)
+    expect(client.defaults.timeout).toBe(15000)
 })
 
-it('returns a useful error when a timeout proxy returns HTML', async () => {
-    vi.stubGlobal(
-        'fetch',
-        vi.fn().mockResolvedValue({
-            status: 504,
-            ok: false,
-            json: () => Promise.reject(new SyntaxError('Unexpected token')),
+it('preserva uma mensagem útil quando o proxy retorna HTML', async () => {
+    adapter.mockImplementation(respond('<html>Gateway timeout</html>', 504))
+    const error = await client.post('sync').catch((error) => error)
+    expect(error.response.status).toBe(504)
+    expect(await apiErrorMessage(error)).toContain('Atualize a tela')
+})
+
+it('envia JSON e JWT Bearer sem cookies ou tenant após o login', async () => {
+    adapter.mockImplementationOnce(respond({ access_token: 'test-token' }))
+    await authApi.login({ email: 'user@example.test', password: 'password' })
+    await client('digest', { method: 'POST' })
+    const config = adapter.mock.calls[1][0]
+    expect(config.baseURL).toBe('http://127.0.0.1:8000/api')
+    expect(config.url).toBe('digest')
+    expect(config.withCredentials).not.toBe(true)
+    expect(config.headers.get('Authorization')).toBe('Bearer test-token')
+    expect(config.headers.has('X-Tenant')).toBe(false)
+    expect(config.headers.has('X-CSRF-TOKEN')).toBe(false)
+    expect(JSON.parse(adapter.mock.calls[0][0].data)).toEqual({
+        email: 'user@example.test',
+        password: 'password',
+    })
+})
+
+it('preserva Retry-After e erros dos campos', async () => {
+    adapter.mockImplementation(
+        respond({ message: 'Aguarde', errors: { name: ['Inválido'] } }, 429, {
+            'Retry-After': '15',
         }),
     )
-    await expect(api('sync', { method: 'POST' })).rejects.toMatchObject({
-        status: 504,
-        message: expect.stringContaining('Atualize a tela'),
-    })
-})
-
-it('sends JWT Bearer without cookies after login', async () => {
-    const fetch = vi
-        .fn()
-        .mockResolvedValueOnce({
-            status: 200,
-            ok: true,
-            json: async () => ({ access_token: 'test-token' }),
-        })
-        .mockResolvedValueOnce({ status: 200, ok: true, json: async () => ({ sent: 0 }) })
-    vi.stubGlobal('fetch', fetch)
-    await api('login', {
-        method: 'POST',
-        body: { email: 'user@example.test', password: 'password' },
-    })
-    await api('digest', { method: 'POST' })
-    expect(fetch).toHaveBeenLastCalledWith(
-        'http://127.0.0.1:8000/api/digest',
-        expect.objectContaining({
-            credentials: 'omit',
-            headers: expect.objectContaining({ Authorization: 'Bearer test-token' }),
-        }),
-    )
-    expect(fetch.mock.calls[1][1].headers).not.toHaveProperty('X-CSRF-TOKEN')
-})
-
-it('preserves Retry-After and field errors for the caller', async () => {
-    vi.stubGlobal(
-        'fetch',
-        vi.fn().mockResolvedValue({
+    await expect(client('sync', { method: 'POST' })).rejects.toMatchObject({
+        response: {
             status: 429,
-            ok: false,
-            headers: new Headers({ 'Retry-After': '15' }),
-            json: async () => ({ message: 'Aguarde', errors: { name: ['Inválido'] } }),
-        }),
-    )
-    await expect(api('sync', { method: 'POST' })).rejects.toMatchObject({
-        status: 429,
-        retryAfter: 15,
-        fields: { name: ['Inválido'] },
+            data: { errors: { name: ['Inválido'] } },
+            headers: { 'Retry-After': '15' },
+        },
     })
 })
 
-it('clears an expired JWT and stops sending it on subsequent requests', async () => {
+it('remove JWT expirado e deixa de enviá-lo nas chamadas seguintes', async () => {
     setToken('expired-jwt')
-    const fetch = vi.fn().mockResolvedValue({
-        status: 401,
-        ok: false,
-        json: async () => ({ message: 'Unauthenticated.' }),
-    })
-    vi.stubGlobal('fetch', fetch)
-    await expect(api('me')).rejects.toMatchObject({ status: 401 })
+    adapter.mockImplementation(respond({ message: 'Unauthenticated.' }, 401))
+    await expect(client('me')).rejects.toMatchObject({ response: { status: 401 } })
     expect(getToken()).toBe('')
-    await expect(api('me')).rejects.toMatchObject({ status: 401 })
-    expect(fetch.mock.calls[1][1].headers).not.toHaveProperty('Authorization')
+    await expect(client('me')).rejects.toMatchObject({ response: { status: 401 } })
+    expect(adapter.mock.calls[1][0].headers.has('Authorization')).toBe(false)
 })
 
-it('downloads private files through the configured API with Bearer authentication', async () => {
+it('baixa arquivos privados com autenticação Bearer', async () => {
     setToken('download-jwt')
     const blob = new Blob(['%PDF-test'], { type: 'application/pdf' })
-    const fetch = vi.fn().mockResolvedValue({ status: 200, ok: true, blob: async () => blob })
-    vi.stubGlobal('fetch', fetch)
-    expect(await api('documents/1/download', { responseType: 'blob' })).toBe(blob)
-    expect(fetch).toHaveBeenCalledWith(
-        'http://127.0.0.1:8000/api/documents/1/download',
-        expect.objectContaining({
-            credentials: 'omit',
-            headers: expect.objectContaining({ Authorization: 'Bearer download-jwt' }),
-        }),
-    )
+    adapter.mockImplementation(respond(blob))
+    expect((await client('documents/1/download', { responseType: 'blob' })).data).toBe(blob)
+    expect(adapter.mock.calls[0][0].responseType).toBe('blob')
+    expect(adapter.mock.calls[0][0].headers.get('Authorization')).toBe('Bearer download-jwt')
+})
+
+it('decodifica erros JSON mesmo quando o download espera um blob', async () => {
+    const blob = new Blob(['error'], { type: 'application/json' })
+    blob.text = async () => JSON.stringify({ message: 'Arquivo ausente.' })
+    adapter.mockImplementation(respond(blob, 404))
+    const error = await client
+        .get('documents/1/download', { responseType: 'blob' })
+        .catch((error) => error)
+    expect(error.response.status).toBe(404)
+    expect(await apiErrorMessage(error)).toBe('Arquivo ausente.')
+})
+
+it('preserva FormData para uploads e mantém a resposta HTTP 204', async () => {
+    const form = new FormData()
+    form.append('file', new Blob(['%PDF-test']), 'edital.pdf')
+    adapter.mockImplementation(respond('', 204))
+    expect((await client('documents', { method: 'POST', data: form })).status).toBe(204)
+    expect(adapter.mock.calls[0][0].data).toBe(form)
+})
+
+it('aplica autenticação e tratamento de erros também pelos métodos nativos do Axios', async () => {
+    adapter.mockImplementationOnce(respond({ access_token: 'native-token' }))
+    await authApi.setup({ email: 'user@example.test' })
+    expect(getToken()).toBe('native-token')
+    adapter.mockImplementationOnce(respond({ message: 'Sessão expirada.' }, 401))
+    await expect(client.get('me')).rejects.toMatchObject({
+        response: { status: 401, data: { message: 'Sessão expirada.' } },
+    })
+    expect(adapter.mock.calls[1][0].headers.get('Authorization')).toBe('Bearer native-token')
+    expect(getToken()).toBe('')
+})
+
+it('não repete requisições que falham na rede', async () => {
+    adapter.mockRejectedValue(new AxiosError('Network Error', 'ERR_NETWORK'))
+    await expect(client('sync', { method: 'POST' })).rejects.toMatchObject({ code: 'ERR_NETWORK' })
+    expect(adapter).toHaveBeenCalledTimes(1)
 })

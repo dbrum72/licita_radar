@@ -1,11 +1,15 @@
-import { api } from '@/services/http'
+import http from '@/services/http'
 
 export const documentAnalysisApi = {
-    get: (id) => api(`opportunities/${id}/analysis`),
-    generate: (id) => api(`opportunities/${id}/analysis`, { method: 'POST' }),
-    download: (id) => api(`opportunities/${id}/analysis/download`, { responseType: 'blob' }),
-    source: (id, key) =>
-        api(`opportunities/${id}/analysis/sources/${encodeURIComponent(key)}`, {
-            responseType: 'blob',
-        }),
+    get: async (id) => (await http(`opportunities/${id}/analysis`)).data,
+    generate: async (id) =>
+        (await http(`opportunities/${id}/analysis`, { method: 'POST', timeout: 0 })).data,
+    download: async (id) =>
+        (await http(`opportunities/${id}/analysis/download`, { responseType: 'blob' })).data,
+    source: async (id, key) =>
+        (
+            await http(`opportunities/${id}/analysis/sources/${encodeURIComponent(key)}`, {
+                responseType: 'blob',
+            })
+        ).data,
 }

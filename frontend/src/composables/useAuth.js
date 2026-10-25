@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '@/utils/apiErrorMessage'
 import { ref, reactive, onMounted } from 'vue'
 import { authApi } from '@/api/auth'
 
@@ -50,11 +51,11 @@ export function useAuth({
                 booting.value = false
                 await loadDashboard()
             } catch (e) {
-                if (e.status === 401) onLogout?.()
-                if (e.status !== 401) error.value = e.message
+                if (e.response?.status === 401) onLogout?.()
+                if (e.response?.status !== 401) error.value = await apiErrorMessage(e)
             }
         } catch (e) {
-            error.value = e.message
+            error.value = await apiErrorMessage(e)
         } finally {
             booting.value = false
         }

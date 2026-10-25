@@ -13,8 +13,7 @@ import {
 import { useWorkspace } from '@/composables/useWorkspace'
 import { labels } from '@/constants/radar'
 import { date, datetime } from '@/utils/formatters'
-const { isCoolingDown, retryMessage, busy, dashboard, perform, loadDashboard, go, synchronize } =
-    useWorkspace()
+const { dashboard, perform, loadDashboard, go } = useWorkspace()
 const historyColumns = [
     { key: 'id', label: 'Consulta' },
     { key: 'started_at', label: 'Início' },
@@ -31,17 +30,6 @@ const historyColumns = [
             <h1>Um radar. Novas possibilidades.</h1>
             <p>Acompanhe as oportunidades certas para os seus próximos projetos.</p>
         </div>
-        <AppButton
-            variant="primary"
-            class="primary"
-            @click="synchronize"
-            :disabled="busy || isCoolingDown('consultation')"
-            :title="retryMessage('consultation')"
-        >
-            <RefreshCw :size="17" />{{
-                retryMessage('consultation') || (busy ? 'Aguarde…' : 'Consultar PNCP')
-            }}
-        </AppButton>
     </div>
     <section class="hero">
         <div>
@@ -90,16 +78,9 @@ const historyColumns = [
             <div v-if="!dashboard.runs.length" class="empty">
                 <Activity :size="32" />
                 <h3>Vamos encontrar seu próximo projeto?</h3>
-                <p>
-                    Cadastre a documentação da empresa<br />e inicie a consulta baseada no acervo.
-                </p>
-                <AppButton
-                    variant="outline"
-                    class="secondary"
-                    @click="synchronize"
-                    :disabled="busy"
-                >
-                    Iniciar consulta<ArrowUpRight :size="16" />
+                <p>Acesse Oportunidades para selecionar os perfis de busca e consultar o PNCP.</p>
+                <AppButton variant="outline" class="secondary" @click="go('opportunities')">
+                    Ir para oportunidades<ArrowUpRight :size="16" />
                 </AppButton>
             </div>
             <AppTable
@@ -123,8 +104,8 @@ const historyColumns = [
                     <Search :size="19" />
                 </div>
                 <p>
-                    Use Consultar PNCP para buscar oportunidades. Aguarde a conclusão nesta tela. Os
-                    anexos são buscados quando você solicita no detalhe da oportunidade.
+                    Na tela Oportunidades, selecione os perfis de busca e clique em Consultar PNCP.
+                    Os anexos são buscados quando você solicita no detalhe da oportunidade.
                 </p>
                 <AppButton variant="ghost" class="text-button" @click="go('profiles')">
                     Ajustar perfis<ArrowUpRight :size="15" />

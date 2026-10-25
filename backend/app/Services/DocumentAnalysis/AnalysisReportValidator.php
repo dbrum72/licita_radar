@@ -3,11 +3,14 @@
 namespace App\Services\DocumentAnalysis;
 
 use App\Models\Opportunity;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 
 class AnalysisReportValidator
 {
-    public function validate(array $analysis, array $sources, Opportunity $opportunity, bool $partial = false): array
+    public const REFERENCE_WARNING = 'Há referências da IA não confirmadas nos documentos, páginas ou textos dos PDFs. Elas foram removidas das evidências; confira os documentos originais antes de usar as conclusões.';
+
+    public function validate(array $analysis, array $sources, Opportunity $opportunity, bool $partial = false, array $referenceWarnings = []): array
     {
         $rules = [
             'summary' => 'required|string|max:12000', 'scope' => 'required|array:status,reason,sources',
@@ -36,12 +39,17 @@ class AnalysisReportValidator
             $rules[$path.'.*.quote'] = 'required|string|max:1200';
         }
         $validator = Validator::make($analysis, $rules);
-        abort_if($validator->fails(), 502, 'O relatório da IA não corresponde ao formato esperado. O relatório anterior foi preservado.');
+        if ($validator->fails()) {
+            Log::warning('Formato inválido na análise documental', ['opportunity_id' => $opportunity->id,
+                'partial' => $partial, 'failed_rules' => array_map('array_keys', $validator->failed())]);
+            abort(502, 'O relatório da IA não corresponde ao formato esperado. O relatório anterior foi preservado.');
+        }
         $analysis = $validator->validated();
+        $unverifiedQuotes = $referenceWarnings;
         $byKey = collect($sources)->keyBy('key')->all();
-        $analysis['scope']['sources'] = $this->references($analysis['scope']['sources'], $byKey);
+        $analysis['scope']['sources'] = $this->references($analysis['scope']['sources'], $byKey, null, $unverifiedQuotes);
         foreach ($analysis['deadlines'] as &$deadline) {
-            $deadline['sources'] = $this->references($deadline['sources'], $byKey, 'tender');
+            $deadline['sources'] = $this->references($deadline['sources'], $byKey, 'tender', $unverifiedQuotes);
             if (! $deadline['sources']) {
                 $analysis['warnings'][] = 'Prazo sem referência documental: '.$deadline['label'].'. Confirme no edital.';
             }
@@ -49,7 +57,7 @@ class AnalysisReportValidator
         unset($deadline);
         $covered = [];
         foreach ($analysis['qualifications'] as &$qualification) {
-            $qualification['sources'] = $this->references($qualification['sources'], $byKey, 'company');
+            $qualification['sources'] = $this->references($qualification['sources'], $byKey, 'company', $unverifiedQuotes);
             $covered = array_merge($covered, array_column($qualification['sources'], 'source_key'));
             if (! $qualification['sources']) {
                 $analysis['warnings'][] = 'Classificação sem referência documental: '.$qualification['name'].'.';
@@ -58,8 +66,8 @@ class AnalysisReportValidator
         unset($qualification);
         $boundary = $opportunity->deadline?->copy()->max(now())->toDateString() ?? today()->toDateString();
         foreach ($analysis['requirements'] as &$requirement) {
-            $requirement['sources'] = $this->references($requirement['sources'], $byKey, 'tender');
-            $requirement['evidence'] = $this->references($requirement['evidence'], $byKey, 'company');
+            $requirement['sources'] = $this->references($requirement['sources'], $byKey, 'tender', $unverifiedQuotes);
+            $requirement['evidence'] = $this->references($requirement['evidence'], $byKey, 'company', $unverifiedQuotes);
             $unverified = collect([...$requirement['sources'], ...$requirement['evidence']])->contains('verification', 'page_unverified');
             if (! $requirement['sources'] || $unverified || ($requirement['status'] === 'comprovada' && ! $requirement['evidence'])) {
                 $requirement['status'] = 'inconclusiva';
@@ -71,6 +79,18 @@ class AnalysisReportValidator
             }
         }
         unset($requirement);
+        if ($unverifiedQuotes) {
+            $notice = self::REFERENCE_WARNING;
+            $analysis['warnings'] = array_values(array_unique([...$analysis['warnings'], $notice, ...$unverifiedQuotes]));
+            $analysis['summary'] = $notice.' '.$analysis['summary'];
+            $analysis['scope']['status'] = 'inconclusivo';
+            $analysis['scope']['reason'] = $notice;
+            foreach ($analysis['requirements'] as &$requirement) {
+                $requirement['status'] = 'inconclusiva';
+                $requirement['gaps'][] = $notice;
+            }
+            unset($requirement);
+        }
         foreach ($sources as $source) {
             if (! $partial && $source['scope'] === 'company' && in_array($source['reading'], ['text', 'visual']) && ! in_array($source['key'], $covered)) {
                 $analysis['warnings'][] = 'Documento do acervo não classificado pela IA: '.$source['name'].'.';
@@ -87,27 +107,47 @@ class AnalysisReportValidator
         return $analysis;
     }
 
-    private function references(array $references, array $sources, ?string $scope = null): array
+    private function references(array $references, array $sources, ?string $scope, array &$unverifiedQuotes): array
     {
+        $verified = [];
         foreach ($references as &$reference) {
             $source = $sources[$reference['source_key']] ?? null;
-            abort_unless($source && in_array($source['reading'], ['text', 'visual']) && (! $scope || $source['scope'] === $scope), 502, 'A IA citou um documento ausente ou fora do conjunto analisado. O relatório anterior foi preservado.');
-            abort_if($source['page_count'] && $reference['page'] > $source['page_count'], 502, 'A IA citou uma página inexistente. O relatório anterior foi preservado.');
+            if (! $source || ! in_array($source['reading'], ['text', 'visual']) || ($scope && $source['scope'] !== $scope)) {
+                $unverifiedQuotes[] = 'Referência removida: documento ausente, fora do lote ou incompatível com a origem exigida (edital/acervo).';
+
+                continue;
+            }
+            if ($source['page_count'] && $reference['page'] > $source['page_count']) {
+                $unverifiedQuotes[] = 'Referência removida: página inexistente em '.$source['name'].'.';
+
+                continue;
+            }
             $reference['source_name'] = $source['name'];
             $reference['verification'] = $source['page_count'] ? 'visual_review' : 'page_unverified';
             if ($source['reading'] === 'text') {
                 $page = collect($source['pages'])->firstWhere('number', $reference['page']);
-                abort_unless($page && str_contains($this->normalize($page['text']), $this->normalize($reference['quote'])), 502, 'Uma citação da IA não foi encontrada em '.$source['name'].', página '.$reference['page'].'. O relatório anterior foi preservado.');
+                $quote = $this->normalize($reference['quote']);
+                if (! $page || $quote === '' || ! str_contains($this->normalize($page['text']), $quote)) {
+                    $unverifiedQuotes[] = 'Citação não confirmada removida: '.$source['name'].', página '.$reference['page'].'.';
+
+                    continue;
+                }
                 $reference['verification'] = 'text_match';
             }
+            $verified[] = $reference;
         }
         unset($reference);
 
-        return $references;
+        return $verified;
     }
 
     private function normalize(string $text): string
     {
+        // Normalize typography only; never drop words, numbers, accents or negation.
+        $text = str_replace(["\u{00AD}", "\u{200B}", "\u{FEFF}"], '', $text);
+        $text = strtr($text, ['“' => '"', '”' => '"', '‘' => "'", '’' => "'", 'ﬁ' => 'fi', 'ﬂ' => 'fl']);
+        $text = preg_replace('/(\p{L})-\h*\R\h*(?=\p{L})/u', '$1', $text);
+
         return mb_strtolower(trim(preg_replace('/\s+/u', ' ', $text)));
     }
 }

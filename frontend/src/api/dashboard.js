@@ -1,5 +1,5 @@
-import { api } from '@/services/http'
+import http from '@/services/http'
 
 export const dashboardApi = {
-    get: () => api('dashboard', { timeoutMs: 15000 }),
+    get: async () => (await http('dashboard')).data,
 }

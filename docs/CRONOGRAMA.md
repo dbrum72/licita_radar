@@ -1,5 +1,43 @@
 # Cronograma de entregas — LicitaRadar
 
+21/10/2026 — Diagnóstico real do 502 documental: retomada da oportunidade 165 reutilizou três lotes salvos e falhou no quarto com referência a documento ausente/fora do conjunto. O contexto dos lotes listava documentos globais; agora cada extração recebe apenas metadados dos documentos do próprio lote. Referências a arquivo ausente, origem inadequada (edital/acervo) ou página inexistente são removidas e tornam as conclusões explicitamente inconclusivas. Avisos de referências inválidas das extrações são propagados deterministicamente à validação final, sem depender de a IA preservá-los. Não se aceita evidência inválida como comprovação. Logging de etapa e regras de formato sem conteúdo documental. Validação: 22 testes documentais aprovados, teste adicional de consolidação aprovado; execução real pós-correção concluída às 18h45: oportunidade 165, 32 documentos, cinco lotes, três reaproveitados e três chamadas nesta tentativa, relatório salvo com 44 exigências. Conferência posterior com chamadas externas bloqueadas retornou cached=true e stale=false; progresso temporário removido após gravação. Relatório apresenta 159 avisos e conclusões inconclusivas por referências não confirmadas; é resultado com pendências, não comprovação de habilitação. Diagnóstico inicial também consumiu uma chamada no quarto lote antes da correção. Pint e diff conferidos.
+
+21/10/2026 — Visão Geral não dispara mais consultas PNCP: removido botão Consultar PNCP do cabeçalho; ação do estado vazio agora navega para Oportunidades, onde ficam os perfis de busca. Orientações atualizadas; atualização do histórico preservada. Validação: cinco testes das telas Visão Geral/Oportunidades aprovados; formatação e diff conferidos.
+
+21/10/2026 — Remoção efetiva da camada HTTP legada: http.js contém somente instância Axios e interceptadores JWT/401 (25 linhas). Removidos helper api, normalização de respostas, status/fields/retryAfter artificiais e API_TIMEOUT. Módulos de domínio consomem response.data diretamente; login/setup armazenam token. Interface lê error.response e usa apiErrorMessage apenas para apresentação (incluindo erros JSON de download). Leituras usam 15s por padrão; ações POST manuais explicitam timeout zero. Validação: build aprovado; 40 arquivos de testes aprovados na suíte e os dois restantes aprovados após atualização das expectativas para Axios nativo (244 testes no total); diff e formatação conferidos.
+
+21/10/2026 — Limpeza do cliente HTTP: removida tradução das opções legadas body/timeoutMs; módulos de domínio usam data/timeout nativos do Axios. Autenticação, respostas e erros centralizados nos interceptadores, inclusive para uso direto da instância. Helper api apenas devolve data e preserva timeout zero para operações manuais longas. Comunicação do frontend com backend exclusivamente por Axios. Validação: 244 testes em 42 arquivos, build Vite, Prettier e diff aprovados. Testes repetidos fora do sandbox após EPERM no cache temporário do Vitest.
+
+Validação do cliente Axios em 21/10/2026: 243 testes frontend/42 arquivos, build Vite, Prettier dos arquivos alterados e diff aprovados; sem chamadas reais aos serviços externos.
+
+21/10/2026 — Cliente HTTP do frontend migrado para Axios a partir de `legalis/frontend/src/api/client.js`, conforme confirmação do usuário. Preservados contratos da API do LicitaRadar, JWT, empresa única, uploads/downloads e timeouts explícitos de leitura versus ações manuais longas. Legalis somente lido.
+
+Validação do teto de chamadas: 22 testes/158 assertions aprovados com IA simulada no MySQL isolado; diff sem erros.
+
+20/10/2026 — Teto padrão de chamadas por análise ampliado de 8 para 16 para comportar o conjunto de 10 chamadas reportado pelo usuário, preservando divisão em lotes e limite finito antes do envio. Sem nova chamada real de IA.
+
+Validação da correção dos anexos PNCP: 91 testes/596 assertions no MySQL isolado, Pint e diff aprovados; listagem e um download reais também conferidos.
+
+20/10/2026 — Corrigida busca de anexos PNCP: novas tentativas limitadas para falhas de conexão, timeout próprio de download, continuidade após falha individual e restauração de arquivo ausente sem duplicar cadastro. Teste real pelo cliente PHP listou 15 anexos e baixou PDF de 1184178 bytes com HTTP 200, sem persistência no banco/storage da aplicação. Homologação de todos os anexos e estabilidade do PNCP permanece pendente.
+
+20/10/2026 — Falha de transporte após 48,11 segundos com limite de 600 durante consolidação: separado diagnóstico de timeout e erro de conexão, com estatísticas cURL seguras. Lotes validados passam a ser preservados no storage privado para retomada manual, invalidados por mudanças de contexto/PDF/configuração e removidos após salvar relatório final. 22 testes/158 assertions, Pint e diff aprovados. Teste real de conectividade sem chave retornou 401; geração com IA segue sem homologação nesta alteração.
+
+20/10/2026 — Ajustados tempo e lotes da análise: timeout padrão de 600 segundos por chamada; novo orçamento independente de 100 mil caracteres para lotes de extração, mantendo consolidação de 500 mil e máximo de chamadas. Medição local confirma conjuntos extensos antes enviados em chamada única. Adicionado diagnóstico seguro de duração do transporte. 20 testes/136 assertions no MySQL isolado com IA simulada, Pint e diff aprovados; geração real ainda não homologada.
+
+Validação da correção de citações: 19 testes/124 assertions no MySQL isolado, Pint e diff aprovados; provedor simulado.
+
+20/10/2026 — Validação de citações por IA: diferenças tipográficas normalizadas; trechos não encontrados removidos das evidências e identificados em avisos, com resumo/escopo/exigências marcados como inconclusivos para revisão. Documento fora do conjunto e página inexistente continuam bloqueando a resposta. Sem nova chamada real ou consumo de créditos nesta correção.
+
+Validação das respostas incompletas da IA: 17 testes/115 assertions no MySQL isolado e Pint aprovados, com provedor simulado.
+
+20/10/2026 — Respostas incompletas da IA passam a distinguir limite de saída e filtro de conteúdo, com log seguro de motivo e tokens. Teto padrão ampliado para 32768 tokens, compartilhado entre raciocínio e relatório. Preservação do relatório e ausência de repetição automática mantidas. Motivo da tentativa original não recuperável pelos logs anteriores; sem nova chamada real nesta alteração.
+
+20/10/2026 — Diagnóstico de novas falhas de análise: OpenAI retornou 429, antes convertido em 502 genérico. Tratamento distingue cota/faturamento de limite temporário e orienta a ação correspondente, com diagnóstico seguro no log. 15 testes/103 assertions no MySQL isolado e Pint aprovados; sem chamadas reais de IA. Homologação depende da disponibilidade dos limites/cota do provedor.
+
+## Análise por IA: limite de execução PHP — 20/10/2026
+
+Corrigido encerramento fatal aos 30 segundos durante análise documental por IA, que chegava ao navegador como erro 500 sem CORS. A operação recebe orçamento finito baseado no timeout e máximo de chamadas configurados, com margem para PDFs e armazenamento; limite anterior restaurado ao terminar. Regressão cobre timeout do provedor com resposta 504 e CORS, sem repetição, liberação da trava e ausência de relatório parcial. Validação: 13 testes e 93 assertions aprovados no MySQL isolado; Pint e diff conferidos. Sem chamadas reais de IA ou alterações nos dados da aplicação. Detalhes em CONTEXT.md.
+
 ## Consolidação das decisões vigentes — 14/10/2026
 
 Documentação consolidada, com correção do seletor em FRONTEND.md e das referências à execução diária no planejamento. Validação desta atualização: 69 testes PHP/412 assertions no MySQL isolado, 237 testes frontend em 43 arquivos, 2 testes de transporte HTTP, build Vite, Prettier, Pint e git diff --check aprovados. PHP, Vitest e transporte foram repetidos com permissão após restrições do sandbox. Nenhuma mudança de código de aplicação ou migration nesta atualização; sem chamadas PNCP ou SMTP reais, nem nova revisão visual.

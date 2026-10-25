@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createSSRApp, h, ref } from 'vue'
 import { renderToString } from '@vue/server-renderer'
-import { api } from '@/services/http'
+import api from '@/services/http'
 import { provideWorkspace } from '@/composables/useWorkspace'
 import { useProfiles } from '@/composables/useProfiles'
 import { useOpportunities } from '@/composables/useOpportunities'
@@ -16,7 +16,7 @@ import SearchProfileListPage from '@/views/profiles/SearchProfileListPage.vue'
 import OpportunityShowPage from '@/views/opportunities/OpportunityShowPage.vue'
 import SearchProfileDialog from '@/views/profiles/components/SearchProfileDialog.vue'
 
-vi.mock('@/services/http', () => ({ api: vi.fn() }))
+vi.mock('@/services/http', () => ({ default: vi.fn() }))
 
 beforeEach(() => vi.clearAllMocks())
 
@@ -86,9 +86,13 @@ describe('manual domain actions', () => {
         })
         opportunities.selectedProfileIds.value = [7]
         expect(api).not.toHaveBeenCalled()
-        api.mockResolvedValueOnce({ message: 'Concluída' })
+        api.mockResolvedValueOnce({ data: { message: 'Concluída' } })
         await opportunities.synchronize()
-        expect(api).toHaveBeenCalledWith('sync', { method: 'POST', body: { profile_ids: [7] } })
+        expect(api).toHaveBeenCalledWith('sync', {
+            method: 'POST',
+            timeout: 0,
+            data: { profile_ids: [7] },
+        })
     })
     it('clears private data and open dialogs after an expired session', async () => {
         let workspace
@@ -100,7 +104,9 @@ describe('manual domain actions', () => {
             state.selectedIds.value = [1]
             state.editProfile()
         })
-        await workspace.perform(() => Promise.reject({ status: 401, message: 'Sessão expirada' }))
+        await workspace.perform(() =>
+            Promise.reject({ response: { status: 401, data: { message: 'Sessão expirada' } } }),
+        )
         expect(workspace.user.value).toBeNull()
         expect(workspace.pendingDelete.value).toBeNull()
         expect(workspace.profileForm.value).toBeNull()
@@ -119,13 +125,13 @@ describe('manual domain actions', () => {
             states: [],
         })
         profiles.profileForm.value.excluded_keywords = ''
-        api.mockResolvedValueOnce({}).mockResolvedValueOnce([])
+        api.mockResolvedValueOnce({ data: {} }).mockResolvedValueOnce({ data: [] })
         await profiles.saveProfile()
         expect(api).toHaveBeenCalledWith(
             'profiles/2',
             expect.objectContaining({
                 method: 'PUT',
-                body: expect.objectContaining({ keywords: ['projeto'], excluded_keywords: [] }),
+                data: expect.objectContaining({ keywords: ['projeto'], excluded_keywords: [] }),
             }),
         )
     })
@@ -134,9 +140,9 @@ describe('manual domain actions', () => {
         const actions = useAsyncAction(() => {})
         const profiles = useProfiles(actions)
         expect(api).not.toHaveBeenCalled()
-        api.mockResolvedValueOnce({ sent: 1, message: '1 resumo enviado' })
+        api.mockResolvedValueOnce({ data: { sent: 1, message: '1 resumo enviado' } })
         await profiles.sendDigest()
-        expect(api).toHaveBeenCalledWith('digest', { method: 'POST' })
+        expect(api).toHaveBeenCalledWith('digest', { method: 'POST', timeout: 0 })
         expect(actions.message.value).toBe('1 resumo enviado')
     })
 

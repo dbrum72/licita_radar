@@ -1,5 +1,13 @@
 # Backend API e frontend independente
 
+## Validação documental — 21/10/2026
+
+Referências da IA a documentos ausentes, fora do lote, com origem inadequada ou página inexistente são removidas das evidências e sinalizadas no relatório, com conclusões inconclusivas. Avisos das extrações são preservados na consolidação final. Esse caso não encerra mais a análise com 502. Erros de formato, transporte e falhas do provedor continuam sendo tratados como falhas; a existência de relatório com pendências não equivale à habilitação. Cada lote recebe apenas metadados dos documentos nele incluídos.
+
+## Transporte do frontend — 21/10/2026
+
+`frontend/src/services/http.js` exporta somente a instância Axios, com timeout padrão de 15 segundos e interceptadores JWT/401. Não exporta helper api e não modifica respostas ou erros do Axios. Módulos de domínio consomem response.data; login/setup armazenam o token. Operações POST manuais longas explicitam timeout zero. A interface lê error.response.data/errors/status/headers e apresenta mensagens pelo utilitário apiErrorMessage, inclusive erros JSON em downloads blob. Não há repetição automática.
+
 Decisão vigente em 08/10/2026: Laravel serve exclusivamente API e arquivos privados autenticados; Vue é servido separadamente. Não há autenticação por sessão, cookie ou CSRF. Todas as operações PNCP e resumos por e-mail continuam iniciadas manualmente na interface.
 
 ## Execução local

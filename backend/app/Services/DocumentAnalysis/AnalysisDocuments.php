@@ -68,6 +68,8 @@ class AnalysisDocuments
         if ($textLimit < 8192 || config('document_analysis.max_calls') < 1) {
             throw ValidationException::withMessages(['analysis' => 'Configure pelo menos 8192 caracteres por chamada e uma chamada de IA no backend.']);
         }
+        // Keep extraction batches smaller than the final consolidation budget.
+        $textLimit = min($textLimit, max(8192, (int) config('document_analysis.batch_text_chars')));
         if (count($sources) > config('document_analysis.max_documents') || array_sum(array_column($sources, 'bytes')) > config('document_analysis.max_total_bytes')) {
             throw ValidationException::withMessages(['analysis' => 'O conjunto excede os limites de documentos ou tamanho da análise. Ajuste os limites no backend antes de prosseguir; nenhum documento foi omitido silenciosamente.']);
         }
@@ -148,7 +150,9 @@ class AnalysisDocuments
             $fragments = [];
             for ($offset = 0, $length = mb_strlen($page['text']); $offset < $length; $offset += max(1, $segmentSize - 256)) {
                 $fragments[] = ['number' => $page['number'], 'text' => mb_substr($page['text'], $offset, $segmentSize)];
-                if ($offset + $segmentSize >= $length) break;
+                if ($offset + $segmentSize >= $length) {
+                    break;
+                }
             }
             foreach ($fragments as $fragment) {
                 $candidate = json_encode(['document' => $metadata, 'pages' => [...$group, $fragment]], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
@@ -159,7 +163,9 @@ class AnalysisDocuments
                 $group[] = $fragment;
             }
         }
-        if ($group) $units[] = $this->textUnit($metadata, $group);
+        if ($group) {
+            $units[] = $this->textUnit($metadata, $group);
+        }
 
         return $units;
     }
@@ -177,7 +183,7 @@ class AnalysisDocuments
         $batches = [];
         $batch = ['keys' => [], 'content' => [], 'text_chars' => 0, 'visual_bytes' => 0];
         foreach ($units as $unit) {
-            if ($batch['content'] && ($batch['text_chars'] + $unit['text_chars'] > $budget || $batch['visual_bytes'] + $unit['visual_bytes'] > config('document_analysis.max_visual_bytes'))) {
+            if ($batch['content'] && ($budget < $batch['text_chars'] + $unit['text_chars'] || config('document_analysis.max_visual_bytes') < $batch['visual_bytes'] + $unit['visual_bytes'])) {
                 $batches[] = $batch;
                 $batch = ['keys' => [], 'content' => [], 'text_chars' => 0, 'visual_bytes' => 0];
             }
@@ -186,7 +192,9 @@ class AnalysisDocuments
             $batch['text_chars'] += $unit['text_chars'];
             $batch['visual_bytes'] += $unit['visual_bytes'];
         }
-        if ($batch['content']) $batches[] = $batch;
+        if ($batch['content']) {
+            $batches[] = $batch;
+        }
 
         return $batches;
     }

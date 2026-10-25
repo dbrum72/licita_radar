@@ -6,14 +6,18 @@ use App\Models\CompanyDocument;
 use App\Models\Document;
 use App\Models\Opportunity;
 use App\Models\User;
+use App\Services\DocumentAnalysis\AnalysisDocuments;
+use App\Services\DocumentAnalysis\AnalysisReportValidator;
 use App\Services\DocumentAnalysis\OpportunityDocumentAnalysis;
 use Dompdf\Dompdf;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 
 class DocumentAnalysisTest extends TestCase
@@ -134,20 +138,53 @@ class DocumentAnalysisTest extends TestCase
         Http::assertSentCount(1);
     }
 
-    public function test_unknown_document_page_or_invented_quote_is_rejected_without_overwriting_report(): void
+    public function test_unknown_document_wrong_scope_or_page_is_removed_without_positive_conclusions(): void
     {
-        $sequence = Http::fakeSequence()->push($this->response());
-        $service = app(OpportunityDocumentAnalysis::class);
-        $service->generate($this->opportunity);
-        $path = 'documents/opportunities/'.$this->opportunity->id.'/analysis/report.json';
-        $before = Storage::disk('local')->get($path);
-        foreach (['source_key' => 'company-9999', 'page' => 999, 'quote' => 'Comprovação inventada pela IA.'] as $field => $value) {
+        $sequence = Http::fakeSequence();
+        foreach (['company-9999', 'tender-'.$this->tender->id, null] as $key) {
             $analysis = $this->analysis();
-            $analysis['requirements'][0]['evidence'][0][$field] = $value;
+            if ($key) {
+                $analysis['requirements'][0]['evidence'][0]['source_key'] = $key;
+            } else {
+                $analysis['requirements'][0]['evidence'][0]['page'] = 999;
+            }
             $sequence->push($this->response($analysis));
-            $this->actingAs(User::factory()->create())->postJson($this->endpoint(), ['force' => true])->assertStatus(502);
-            $this->assertSame($before, Storage::disk('local')->get($path));
+            $response = $this->actingAs(User::factory()->create())->postJson($this->endpoint(), ['force' => true])->assertOk()
+                ->assertJsonPath('report.analysis.scope.status', 'inconclusivo')
+                ->assertJsonPath('report.analysis.requirements.0.status', 'inconclusiva')
+                ->assertJsonCount(0, 'report.analysis.requirements.0.evidence');
+            $this->assertStringContainsString('Referência removida', implode(' ', $response->json('report.analysis.warnings')));
         }
+    }
+
+    public function test_unmatched_quotes_are_removed_and_never_support_a_positive_conclusion(): void
+    {
+        $analysis = $this->analysis();
+        $analysis['scope']['sources'][0]['quote'] = 'Trecho inventado que não consta no documento.';
+        $analysis['requirements'][0]['evidence'][0]['quote'] = 'Capacidade para 999999 m2.';
+        Http::fake(['https://api.openai.com/v1/responses' => Http::response($this->response($analysis))]);
+        $response = $this->actingAs(User::factory()->create())->postJson($this->endpoint())->assertOk()
+            ->assertJsonPath('report.analysis.scope.status', 'inconclusivo')
+            ->assertJsonPath('report.analysis.requirements.0.status', 'inconclusiva')
+            ->assertJsonCount(0, 'report.analysis.requirements.0.evidence')
+            ->assertJsonCount(1, 'report.analysis.scope.sources');
+        $this->assertStringContainsString('Citação não confirmada removida', implode(' ', $response->json('report.analysis.warnings')));
+        $this->assertStringNotContainsString('999999', json_encode($response->json('report.analysis')));
+        Http::assertSentCount(1);
+    }
+
+    public function test_pdf_typography_differences_do_not_reject_literal_citations(): void
+    {
+        $this->writeCompanyPdf($this->company, [['number' => 1, 'text' => 'Atestado de projeto arquitetônico com ‘fiscalização’ e 150 m2.']]);
+        $analysis = $this->analysis();
+        $reference = ['source_key' => 'company-'.$this->company->id, 'page' => 1, 'quote' => "Atestado de projeto arquitetônico com 'fiscalização' e 150 m2."];
+        $analysis['scope']['sources'][1] = $reference;
+        $analysis['qualifications'][0]['sources'][0] = $reference;
+        $analysis['requirements'][0]['evidence'][0] = $reference;
+        Http::fake(['https://api.openai.com/v1/responses' => Http::response($this->response($analysis))]);
+        $this->actingAs(User::factory()->create())->postJson($this->endpoint())->assertOk()
+            ->assertJsonPath('report.analysis.requirements.0.status', 'comprovada')
+            ->assertJsonPath('report.analysis.requirements.0.evidence.0.verification', 'text_match');
     }
 
     public function test_missing_files_and_expired_evidence_are_explicit_and_not_silently_approved(): void
@@ -200,10 +237,131 @@ class DocumentAnalysisTest extends TestCase
         Storage::disk('local')->assertMissing('documents/opportunities/'.$this->opportunity->id.'/analysis/report.json');
     }
 
+    public function test_analysis_extends_php_budget_and_returns_timeout_with_cors_and_releases_lock(): void
+    {
+        $originalLimit = (int) ini_get('max_execution_time');
+        config(['document_analysis.timeout' => 180, 'document_analysis.max_calls' => 8]);
+        $attempts = 0;
+        Http::fake(function () use (&$attempts) {
+            $attempts++;
+            $this->assertGreaterThanOrEqual(180 * 8 + 600, (int) ini_get('max_execution_time'));
+
+            throw new ConnectionException('cURL error 28: Simulated provider timeout');
+        });
+        try {
+            set_time_limit(30);
+            $this->actingAs(User::factory()->create())->withHeader('Origin', 'http://127.0.0.1:5173')
+                ->postJson($this->endpoint())->assertStatus(504)
+                ->assertHeader('Access-Control-Allow-Origin', 'http://127.0.0.1:5173')
+                ->assertJsonPath('message', 'A conexão com a IA excedeu o tempo de espera. Os lotes concluídos foram preservados para a próxima tentativa manual; a chamada interrompida pode ter consumido créditos.');
+            $this->assertSame(30, (int) ini_get('max_execution_time'));
+            $this->assertSame(1, $attempts);
+            Storage::disk('local')->assertMissing('documents/opportunities/'.$this->opportunity->id.'/analysis/report.json');
+            $lock = Cache::lock('opportunity-document-analysis:'.$this->opportunity->id, 60);
+            $this->assertTrue($lock->get());
+            $lock->release();
+        } finally {
+            set_time_limit($originalLimit);
+        }
+    }
+
+    public function test_large_document_set_uses_small_batches_and_consolidates_all_sources(): void
+    {
+        config(['document_analysis.batch_text_chars' => 8192, 'document_analysis.max_text_chars' => 500000]);
+        $this->writeCompanyPdf($this->company, [['number' => 1, 'text' => str_repeat('Capacidade técnica em projetos arquitetônicos. ', 220)]]);
+        $documents = app(AnalysisDocuments::class);
+        $prepared = $documents->prepare($this->opportunity, $documents->inventory($this->opportunity));
+        $this->assertGreaterThan(1, count($prepared['batches']));
+        $keys = [];
+        foreach ($prepared['batches'] as $batch) {
+            $this->assertLessThanOrEqual(8192, $batch['text_chars']);
+            $keys = [...$keys, ...$batch['keys']];
+        }
+        $this->assertEqualsCanonicalizing(array_column($prepared['sources'], 'key'), array_values(array_unique($keys)));
+        $analysis = $this->analysis();
+        $analysis['scope']['sources'] = [];
+        $analysis['qualifications'] = [];
+        $analysis['requirements'] = [];
+        Http::fake(function ($request) use ($analysis) {
+            $context = json_decode($request['input'][0]['content'][0]['text'], true);
+            if (isset($context['batch_sources'])) {
+                $this->assertEqualsCanonicalizing($context['batch_sources'], array_column($context['documents'], 'key'));
+            }
+
+            if (($context['batch'] ?? null) === 1) {
+                $analysis['scope']['sources'] = [['source_key' => 'outside-batch', 'page' => 1, 'quote' => 'Not evidence']];
+            }
+
+            return Http::response($this->response($analysis));
+        });
+        $state = app(OpportunityDocumentAnalysis::class)->generate($this->opportunity);
+        $this->assertSame('staged', $state['report']['processing']['mode']);
+        $this->assertContains(AnalysisReportValidator::REFERENCE_WARNING, $state['report']['analysis']['warnings']);
+        $this->assertStringContainsString('Referência removida', implode(' ', $state['report']['analysis']['warnings']));
+        $this->assertSame(count($prepared['batches']) + 1, $state['report']['processing']['calls']);
+        $this->assertCount(count($prepared['sources']), $state['report']['sources']);
+        Http::assertSentCount(count($prepared['batches']) + 1);
+    }
+
+    public static function resumeCases(): array
+    {
+        return ['unchanged' => [false], 'changed-document' => [true]];
+    }
+
+    #[DataProvider('resumeCases')]
+    public function test_failed_consolidation_resumes_only_unchanged_validated_batches(bool $changeDocument): void
+    {
+        config(['document_analysis.batch_text_chars' => 8192]);
+        $text = str_repeat('Capacidade técnica em projetos arquitetônicos. ', 220);
+        $this->writeCompanyPdf($this->company, [['number' => 1, 'text' => $text]]);
+        $documents = app(AnalysisDocuments::class);
+        $prepared = $documents->prepare($this->opportunity, $documents->inventory($this->opportunity));
+        $batchCount = count($prepared['batches']);
+        $analysis = $this->analysis();
+        $analysis['scope']['sources'] = [];
+        $analysis['qualifications'] = [];
+        $analysis['requirements'] = [];
+        $calls = 0;
+        Http::fake(function () use (&$calls, $batchCount, $analysis) {
+            $calls++;
+            if ($calls === $batchCount + 1) {
+                throw new ConnectionException('cURL error 56: PRIVATE_CONNECTION_DETAILS');
+            }
+
+            return Http::response($this->response($analysis));
+        });
+        $service = app(OpportunityDocumentAnalysis::class);
+        try {
+            $service->generate($this->opportunity);
+            $this->fail('Expected network failure during consolidation');
+        } catch (HttpException $exception) {
+            $this->assertSame(502, $exception->getStatusCode());
+            $this->assertStringContainsString('conexão', $exception->getMessage());
+            $this->assertStringNotContainsString('PRIVATE_CONNECTION_DETAILS', $exception->getMessage());
+        }
+        $path = 'documents/opportunities/'.$this->opportunity->id.'/analysis/';
+        Storage::disk('local')->assertExists($path.'progress.json');
+        Storage::disk('local')->assertMissing($path.'report.json');
+        $this->assertStringNotContainsString($text, Storage::disk('local')->get($path.'progress.json'));
+        if ($changeDocument) {
+            Storage::disk('local')->put($this->company->path, Storage::disk('local')->get($this->company->path)."\n% changed");
+        }
+        $report = $service->generate($this->opportunity)['report'];
+        $this->assertSame($changeDocument ? 0 : $batchCount, $report['processing']['reused_batches']);
+        $this->assertSame($changeDocument ? $batchCount + 1 : 1, $report['processing']['calls']);
+        $this->assertSame($batchCount + 1 + $report['processing']['calls'], $calls);
+        Storage::disk('local')->assertMissing($path.'progress.json');
+        Storage::disk('local')->assertExists($path.'report.json');
+    }
+
     public static function providerFailures(): array
     {
         return [
-            'quota' => [429, ['error' => ['message' => 'PRIVATE_PROVIDER_MESSAGE', 'code' => 'insufficient_quota']], 502],
+            'output-limit' => [200, ['status' => 'incomplete', 'incomplete_details' => ['reason' => 'max_output_tokens'], 'usage' => ['output_tokens' => 16000, 'output_tokens_details' => ['reasoning_tokens' => 12000]]], 502],
+            'content-filter' => [200, ['status' => 'incomplete', 'incomplete_details' => ['reason' => 'content_filter']], 502],
+            'quota' => [429, ['error' => ['message' => 'PRIVATE_PROVIDER_MESSAGE', 'code' => 'insufficient_quota']], 503],
+            'billing-limit' => [429, ['error' => ['message' => 'PRIVATE_PROVIDER_MESSAGE', 'code' => 'billing_hard_limit_reached']], 503],
+            'rate-limit' => [429, ['error' => ['message' => 'PRIVATE_PROVIDER_MESSAGE', 'code' => 'rate_limit_exceeded']], 429],
             'credentials' => [401, ['error' => ['message' => 'PRIVATE_PROVIDER_MESSAGE']], 502],
             'refusal' => [200, ['status' => 'completed', 'output' => [['content' => [['type' => 'refusal', 'refusal' => 'PRIVATE_PROVIDER_MESSAGE']]]]], 422],
             'invalid-json' => [200, ['status' => 'completed', 'output' => [['content' => [['type' => 'output_text', 'text' => 'not-json']]]]], 502],
@@ -215,6 +373,12 @@ class DocumentAnalysisTest extends TestCase
     {
         Http::fake(['https://api.openai.com/v1/responses' => Http::response($body, $httpStatus)]);
         $response = $this->actingAs(User::factory()->create())->postJson($this->endpoint())->assertStatus($expectedStatus);
+        if (($body['incomplete_details']['reason'] ?? null) === 'max_output_tokens') {
+            $this->assertStringContainsString('OPENAI_ANALYSIS_MAX_OUTPUT_TOKENS', $response->json('message'));
+        }
+        if (($body['incomplete_details']['reason'] ?? null) === 'content_filter') {
+            $this->assertStringContainsString('filtro de conteúdo', $response->json('message'));
+        }
         $this->assertStringNotContainsString('PRIVATE_PROVIDER_MESSAGE', $response->getContent());
         $this->assertStringNotContainsString('test-key-not-real', $response->getContent());
         Http::assertSentCount(1);
